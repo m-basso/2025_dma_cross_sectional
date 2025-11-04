@@ -1,0 +1,237 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r - load libraries }
+library(mia)
+library(TreeSummarizedExperiment)
+library(miaViz)
+library(scater)
+library(sechm) # wrapper for ComplexHeatmap package
+library(patchwork) # for wrap 
+library(cowplot) # for plot merge / alignemnt
+library(dplyr)
+
+```
+
+```{r - upload data }
+tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
+tse_l1_ab20 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_l1_ab20.rds")
+
+```
+
+
+# PREV / REL ABUNDANCE VISUALIZATION
+
+```{r - composition stack barplot - l1 }
+
+l1 <- tse_l1_ab20
+  # fix rownames
+rownames(l1) <- sub("_", " ", rownames(l1))
+rownames(l1)[c(1, 3, 8)] <- c("Bacillota A", "Bacillota", "Bacillota C")
+
+# palette
+phylum_palette <- c(
+  "Actinobacteriota"  = "#5DA5D9",  # sky blue
+  "Bacteroidota"      = "#FCA85B",  # orange
+  "Cyanobacteria"     = "#4FBE95",  # teal/greenish
+  "Desulfobacterota I"= "#E84C4F",  # red
+  "Bacillota"         = "#9058A0",  # purple
+  "Bacillota A"       = "#8C6A66",  # brown/taupe
+  "Bacillota C"       = "#F79BC3",  # pink
+  "Proteobacteria"    = "#999999",  # gray
+  "Verrucomicrobiota" = "#EAE06B"   # yellowish
+)
+
+# barplot
+barplot <- plotAbundance(
+  l1, assay.type = "relabundance",
+  order.row.by = "abund", order.col.by = "Bacteroidota") +
+  scale_fill_manual(values = phylum_palette) + 
+  labs(fill = "Phylum") +
+theme(
+  legend.text = element_text(size = 17),
+  legend.title = element_text(size = 20),
+  legend.key.size = unit(0.7, "cm"),
+  plot.margin = margin(5.5, 5.5, 0, 5.5)
+) 
+
+sample_order <- ggplot_build(barplot)$layout$panel_params[[1]]$x$breaks
+
+## 2) Build a tiny data frame for the metadata strip
+meta_df <- as.data.frame(SummarizedExperiment::colData(l1))
+meta_df$sample <- rownames(meta_df)
+meta_df$sample <- factor(meta_df$sample, levels = sample_order)
+
+p_strip <- ggplot(meta_df, aes(x = sample, y = 1, fill = HEI_cluster_2)) +
+  geom_tile() +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(fill = "HEI") +
+  theme_void() +
+  scale_fill_manual(
+        name = "HEI cluster",
+        values = c(
+            "2" = "#d95f02",
+            "1" = "#1b9e77"
+        )) +
+  theme(
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    plot.margin = margin(0, 5.5, 5.5, 5.5),   # small top margin
+    axis.text.x = element_blank(),
+    legend.position = "bottom"
+  )
+
+plot <- (barplot / p_strip) + plot_layout(heights = c(1, 0.03))
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/tax_barplot.png", bg = "white", plot = plot, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r - magnify barplot }
+
+# magnify the less prevalent taxa
+magnified_barplot <- plotAbundance(
+  l1[c("Actinobacteriota", "Cyanobacteria", "Desulfobacterota I", "Bacillota", "Bacillota C", "Proteobacteria", "Verrucomicrobiota")], assay.type = "relabundance",
+  order.row.by = "abund", order.col.by = "Actinobacteriota") + # remember to specify how cols have been ordered in the image
+  scale_fill_manual(values = c(
+  "Actinobacteriota"  = "#5DA5D9",  
+  "Cyanobacteria"     = "#4FBE95",  
+  "Desulfobacterota I"= "#E84C4F",  
+  "Bacillota"         = "#9058A0",  
+  "Bacillota C"       = "#F79BC3",  
+  "Proteobacteria"    = "#999999",  
+  "Verrucomicrobiota" = "#EAE06B"   
+)) + 
+  labs(NULL) +
+theme(
+  legend.position = "none",
+  axis.title.x = element_text(size = 15),
+  axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 13)
+)
+
+
+sample_order2 <- ggplot_build(magnified_barplot)$layout$panel_params[[1]]$x$breaks
+meta_df <- as.data.frame(SummarizedExperiment::colData(l1))
+meta_df$sample <- rownames(meta_df)
+meta_df$sample <- factor(meta_df$sample, levels = sample_order2)
+
+p_strip <- ggplot(meta_df, aes(x = sample, y = 1, fill = HEI_cluster_2)) +
+  geom_tile() +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(fill = "HEI") +
+  theme_void() +
+  scale_fill_manual(
+        name = "HEI cluster",
+        values = c(
+            "2" = "#d95f02",
+            "1" = "#1b9e77"
+        )) +
+  theme(
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    plot.margin = margin(0, 5.5, 5.5, 5.5),   # small top margin
+    axis.text.x = element_blank(),
+    legend.position = "bottom"
+  )
+
+plot2 <- (magnified_barplot / p_strip) + plot_layout(heights = c(1, 0.03))
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/magnified_barplot.png", bg = "white", plot = plot2, width = 10, height = 6, dpi = 300)
+
+```
+
+
+
+```{r - abundance plots - density by Var - l1 }
+
+# l1, rel abundance density plot by HEI cluster
+plotAbundanceDensity(
+    l1, layout = "density",
+    assay.type = "relabundance",
+    colour.by="HEI_cluster_2",
+    point.alpha=1/10) +
+    scale_x_log10()  +
+  theme(axis.text.x = element_text(size = 13),
+        strip.text.y = element_text(size = 13, angle = 0))
+
+# l1, rel abundance density plot by STAI_cat
+
+# plot
+plotAbundanceDensity(
+    l1,
+    layout = "density",
+    assay.type = "relabundance",
+    colour.by = "STAI_s_cat.binary",
+    point.alpha = 1/10
+) +
+    scale_x_log10() +
+    scale_color_manual(
+        name = "STAI_s_cat.binary",  # fixes legend title
+        values = c(
+            "no_low" = "#fdae6b",
+            "mod_high" = "#6baed6"
+        )
+    ) +
+    scale_fill_manual(
+        name = "STAI_s_cat.binary",
+        values = c(
+            "no_low" = "#fdae6b",
+            "mod_high" = "#6baed6"
+        )
+    ) + 
+  theme(axis.text.x = element_text(size = 13),
+        strip.text.y = element_text(size = 13, angle = 0))
+
+
+
+```
+
+
+```{r - abundance plots - density by Var - l6 }
+
+# l6, rel abundance density plot by HEI cluster
+plotAbundanceDensity(
+    tse_taxa[c("Ruminococcus_B gnavus", "Flavonifractor plautii", "Faecalibacterium prausnitzii_J", 
+               "Faecalibacterium prausnitzii_E", "unclassified_2", "CAG-314 sp000437915" )], 
+    layout = "density",
+    assay.type = "relabundance",
+    colour.by="HEI_cluster_2",
+    point.alpha=1/10) +
+    scale_x_log10()  + 
+  theme(axis.text.x = element_text(size = 13),
+        strip.text.y = element_text(size = 13, angle = 0))
+
+
+# l6, rel abundance density plot by anx cat
+plotAbundanceDensity(
+    tse_taxa[c("Ruminococcus_B gnavus", "Flavonifractor plautii", "Faecalibacterium prausnitzii_J", 
+               "Faecalibacterium prausnitzii_E", "unclassified_2", "CAG-314 sp000437915" )], 
+    layout = "density",
+    assay.type = "relabundance",
+    colour.by="STAI_s_cat.binary",
+    point.alpha=1/10) +
+    scale_x_log10() +
+    scale_color_manual(
+        name = "STAI_s_cat.binary",  # fixes legend title
+        values = c(
+            "no_low" = "#fdae6b",
+            "mod_high" = "#6baed6"
+        )
+    ) +
+    scale_fill_manual(
+        name = "STAI_s_cat.binary",
+        values = c(
+            "no_low" = "#fdae6b",
+            "mod_high" = "#6baed6"
+        )
+    )  + 
+  theme(axis.text.x = element_text(size = 12),
+        strip.text.y = element_text(size = 13, angle = 0))
+
+
+
+```
+
+
+
+

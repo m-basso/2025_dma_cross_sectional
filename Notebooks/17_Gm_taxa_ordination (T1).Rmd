@@ -1,0 +1,188 @@
+---
+title: "Gm taxa beta diversity"
+output: html_notebook
+---
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(mia)
+library(scater)
+library(patchwork)
+library(MiRKAT)
+
+```
+
+```{r - upload data }
+tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds") 
+metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+
+```
+
+# 1.calculate dissimilarity / distance matrix
+# 2.apply ordination method = tool to reduce the dimensionality of data for a more efficient analysis and visualization, aims im to capture as much essential information from the data as possible and turn it into a lower dimensional representation.
+## unsupervised and supervised (with subset data based on anx category)
+
+
+```{r - distance and ordination MDS }
+
+# MDS
+tse_taxa <- runMDS(
+  x = tse_taxa,
+  FUN = getDissimilarity,
+  ncomponents = 25,
+  method = "euclidean",
+  assay.type = "clr",
+  name = "MDS_aitchison"
+)
+
+# extract eigenvalues
+MDS <-reducedDim(tse_taxa, "MDS_aitchison")
+MDS_eig <- attr(MDS, "eig")
+
+# turn into %
+MDS_pos <- MDS_eig[MDS_eig > 0]
+pct <- 100*MDS_pos/ sum(MDS_pos) #1: 7.50%, #2: 6.11%, #3: 5.48%
+
+colData(tse_taxa)
+
+```
+
+```{r - plot MDS }
+
+MDS_p <- plotReducedDim(
+  object = tse_taxa,
+  dimred = "MDS_aitchison",
+  percentVar = c(7.50, 6.11, 5.48),
+    colour_by = "STAI.s_score", 
+    size_by = "HEI_cluster_2",
+    ncomponents = 3,
+    text_size = 10) +
+  scale_color_viridis_c(
+    name   = "STAI-s (score)",
+    option = "inferno" 
+  ) +
+  guides(size = guide_legend(title = "HEI cluster")) +
+  theme(
+    text            = element_text(size = 18),   # base size for all text
+    axis.title      = element_text(size = 16),   # axis titles
+    axis.text       = element_text(size = 14),   # axis tick labels
+    legend.title    = element_text(size = 20),   # legend titles
+    legend.text     = element_text(size = 18),   # legend item labels
+    strip.text      = element_text(size = 16)
+  )
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/MDS_aitchison.png", bg = "white", plot = MDS_p, width = 13, height = 15, dpi = 300)
+
+MDS_p
+
+```
+
+```{r - same with categorical STAI }
+
+MDS_p_cat <- plotReducedDim(
+  object = tse_taxa,
+  dimred = "MDS_aitchison",
+  percentVar = c(7.50, 6.11, 5.48),
+    colour_by = "STAI_s_cat.binary", 
+    size_by = "HEI_cluster_2",
+    ncomponents = 3,
+    text_size = 10) +
+  guides(size = guide_legend(title = "HEI cluster")) +
+  theme(
+    text            = element_text(size = 18),   # base size for all text
+    axis.title      = element_text(size = 16),   # axis titles
+    axis.text       = element_text(size = 14),   # axis tick labels
+    legend.title    = element_text(size = 20),   # legend titles
+    legend.text     = element_text(size = 18),   # legend item labels
+    strip.text      = element_text(size = 16)
+  )
+
+MDS_p_cat
+
+```
+
+```{r - dissimilarity matrix }
+
+# dissimilarity matrix
+tse_taxa <- addDissimilarity(
+  x          = tse_taxa,
+  FUN        = getDissimilarity,
+  method     = "euclidean",
+  assay.type = "clr",
+  name       = "aitchison"      
+)
+
+# visualize
+metadata(tse_taxa)$aitchison
+
+```
+
+```{r - MiRKAT - aitchison - 1 cov }
+
+# HEI as cov
+X_cov <- model.matrix(~ HEI_cluster_2, data = colData(tse_taxa))[, -1, drop=FALSE]
+# convert D to Kernel
+K <- D2K(metadata(tse_taxa)$aitchison)
+# run MIRKAT
+mirkat_l6 <- MiRKAT(
+  y = colData(tse_taxa)$STAI.s_score_scaled,
+  X = X_cov,
+  Ks = K,
+  method = "permutation",
+  out_type = "C",
+  returnKRV = T,
+  returnR2 = T
+)
+# view
+mirkat_l6
+
+```
+
+```{r - MiRKAT - aitchison - 2 cov }
+
+# attach GSRS
+colD <- as.data.frame(colData(tse_taxa))
+
+colD$GSRS.tot_scaled <- metadata_t1$GSRS.tot_scaled[
+                           match(rownames(colD), metadata_t1$ID)]
+# cov matrix
+X_cov_2 <- model.matrix(~ HEI_cluster_2 + GSRS.tot_scaled, data = colD)[, -1, drop=FALSE]
+# run MIRKAT
+mirkat_l6_cov2 <- MiRKAT(
+  y = colData(tse_taxa)$STAI.s_score_scaled,
+  X = X_cov_2,
+  Ks = K,
+  method = "permutation",
+  out_type = "C",
+  returnKRV = T,
+  returnR2 = T
+)
+
+mirkat_l6_cov2
+
+```
+
+```{r - MiRKAT - aitchison - 2 cov - cat }
+
+# run MIRKAT
+mirkat_l6_cov2_cat <- MiRKAT(
+  y = colData(tse_taxa)$STAI_s_cat.binary,
+  X = X_cov,
+  Ks = K,
+  method = "permutation",
+  out_type = "D",
+  returnKRV = T,
+  returnR2 = T
+)
+
+mirkat_l6_cov2_cat
+
+```
+
+
+
+
+
+
+

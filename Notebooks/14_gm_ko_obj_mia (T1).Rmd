@@ -1,0 +1,228 @@
+---
+title: "Gm function preprocessing"
+output: html_notebook
+---
+
+```{r}
+library(mia)
+library(zCompositions)
+library(rtk)
+
+```
+
+```{r}
+# df
+in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+# KO
+gm_ko_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.f.rds")
+gm_ko_t1.raw <-  readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.raw.rds")
+# GBM
+gm_gbm_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_gbm_t1.f.rds")
+# metadata
+metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+
+```
+
+```{r - colData }
+# IDs as rownames
+rownames(in24_merged_VIF) <- in24_merged_VIF[, 1]
+in24_merged_VIF <- in24_merged_VIF[, -1]
+# check class
+class(in24_merged_VIF) 
+
+```
+
+```{r - gm data }
+
+# ko
+gm_ko_t1.f <- as.matrix(gm_ko_t1.f)
+all(colnames(gm_ko_t1.f) == rownames(in24_merged_VIF))
+# gbm
+gm_gbm_t1.f <- as.matrix(gm_gbm_t1.f)
+all(colnames(gm_gbm_t1.f) == rownames(in24_merged_VIF))
+# match order of vif df
+gm_gbm_t1.f <- gm_gbm_t1.f[, match(rownames(in24_merged_VIF), colnames(gm_gbm_t1.f))]
+all(colnames(gm_gbm_t1.f) == rownames(in24_merged_VIF))
+# save in right order
+saveRDS(gm_gbm_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_gbm_t1.f.rds")
+
+```
+
+
+# KO
+
+```{r - create KO tse obj }
+
+tse_ko <- TreeSummarizedExperiment(
+  assays = SimpleList(counts = gm_ko_t1.f), # SimpleList to then store multiple assays
+  colData = DataFrame(in24_merged_VIF)
+) 
+
+mainExpName(tse_ko) <- "KO"
+
+assay(tse_ko, "counts")
+
+```
+
+```{r - relabundance }
+
+tse_ko <- transformAssay(
+  tse_ko, assay.type = "counts", 
+  method = "relabundance")
+
+```
+
+```{r - Mult Repl }
+
+assay(tse_ko, "counts_multRep") <- cmultRepl(
+  assay(tse_ko, "counts"), 
+  label = 0, 
+  method = "CZM", 
+  z.delete = F, 
+  output = "p-counts") 
+
+
+```
+
+```{r - clr }
+
+# for beta diversity
+tse_ko <- transformAssay(
+  tse_ko, assay.type = "counts_multRep", 
+  method = "clr")
+
+assay(tse_ko, "clr") <- as.matrix(assay(tse_ko, "clr"))
+
+
+```
+
+
+```{r - save }
+
+saveRDS(tse_ko, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_ko.rds")
+
+```
+
+```{r - alpha diversity }
+# rarefy
+min = min(colSums(gm_ko_t1.raw))
+t <- rtk(gm_ko_t1.raw, depth = min)
+
+# df
+alpha_df_ko <- do.call(rbind, lapply(t$divvs, function(x) {
+  data.frame(
+    ID        = x$samplename,
+    richness      = round(mean(x$richness), 0),    # integer
+    shannon       = round(mean(x$shannon), 3),     # keep 3 decimals
+    invsimpson    = round(mean(x$invsimpson), 2),  # 2 decimals is usually enough
+    chao1         = round(mean(x$chao1), 0),       # also an integer
+    evenness      = round(mean(x$eveness), 3)      # proportion, 3 decimals
+  )
+}))
+
+alpha_df_ko[, 2:6] <- lapply(alpha_df_ko[, 2:6], function(x) as.numeric(scale(x)))
+
+```
+
+
+# GBMs
+
+```{r - create GBM filtered tse obj }
+
+tse_gbm <- TreeSummarizedExperiment(
+  assays = SimpleList(counts = gm_gbm_t1.f),
+  colData = DataFrame(in24_merged_VIF)
+) 
+
+mainExpName(tse_gbm) <- "GBM"
+
+assay(tse_gbm, "counts") |> head()
+
+```
+
+```{r - relabundance - GBM }
+
+tse_gbm <- transformAssay(
+  tse_gbm, assay.type = "counts", 
+  method = "relabundance")
+
+colSums(assay(tse_gbm, "relabundance"))
+
+assay(tse_gbm, "relabundance") |> head()
+
+```
+
+```{r - Mult Repl - GBM }
+
+assay(tse_gbm, "counts_multRep") <- cmultRepl(
+  assay(tse_gbm, "counts"), 
+  label = 0, 
+  method = "CZM", 
+  z.delete = F, 
+  output = "p-counts") 
+
+assay(tse_gbm, "counts_multRep") |> head()
+
+```
+
+```{r - clr - GBM }
+
+tse_gbm <- transformAssay(
+  tse_gbm, assay.type = "counts_multRep", 
+  method = "clr")
+
+assay(tse_gbm, "clr") <- as.matrix(assay(tse_gbm, "clr"))
+
+assay(tse_gbm, "clr") |> head()
+
+```
+
+```{r - standardization - GBM }
+
+tse_gbm <- transformAssay(
+  tse_gbm, 
+  assay.type = "clr", 
+   MARGIN = "rows",
+  method = "standardize")
+
+# view
+assay(tse_gbm, "standardize") |> head()
+str(assay(tse_gbm, "standardize"))
+
+rowMeans(assay(tse_gbm, "standardize"))
+
+```
+
+
+#  % prev filtering for binary gm leaves only few features --> only do con modelling with 0s removed 
+
+```{r - N presence by feature }
+
+# how many individuals have that features? 
+rowData(tse_gbm)$N_presence <- rowSums(assay(tse_gbm) > 0)  
+rowData(tse_gbm)$N_presence 
+
+# how many features have are present in at least 20 subjects?
+sum(rowData(tse_gbm)$N_presence>= 20)
+
+# which ones?
+names(rowData(tse_gbm)$N_presence>= 20)  
+
+# these will be those tested with subsequent models after dropping zeros 
+
+
+```
+
+
+
+```{r - save GBM }
+
+saveRDS(tse_gbm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds")
+saveRDS(alpha_df_ko, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df_ko.rds")
+
+```
+
+
+
+
+

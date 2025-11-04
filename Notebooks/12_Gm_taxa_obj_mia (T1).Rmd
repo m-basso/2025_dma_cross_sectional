@@ -1,0 +1,403 @@
+---
+title: "Gm taxa preprocessing"
+output: html_notebook
+---
+
+```{r - load libraries }
+library(mia)
+library(TreeSummarizedExperiment)
+library(zCompositions) # for multiplicative bayesian replacement
+library(dplyr)
+library(rtk)
+
+```
+
+
+```{r - upload df }
+
+# df
+in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+
+# l6
+# counts
+gm_taxa_spec_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
+gm_taxa_spec_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds") # for alpha beta div
+# phylo tree
+phylo_tree_l6 <-  readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l6.rds")
+
+# l1
+# counts
+gm_taxa_pyl_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+# phylo tree
+phylo_tree_l1 <-  readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l1.rds")
+
+
+```
+
+
+################################################ DATA CHECKS
+
+```{r - check colData }
+
+# IDs as rownames
+rownames(in24_merged_VIF) <- in24_merged_VIF$ID
+in24_merged_VIF <- in24_merged_VIF %>% dplyr::select(-ID)
+# check class
+class(in24_merged_VIF) 
+
+```
+
+```{r - check class and structure - l6 }
+
+class(gm_taxa_spec_t1.f)
+gm_taxa_spec_t1.f <- as.matrix(gm_taxa_spec_t1.f)
+
+cat("\nIDs match:\n")
+print(all(rownames(in24_merged_VIF) == colnames(gm_taxa_spec_t1.f)))
+
+class(phylo_tree_l6)
+
+identical (rownames(phylo_tree_l6), rownames(gm_taxa_spec_t1.f))
+
+```
+
+```{r - check class and structure - l6 non filt }
+
+class(gm_taxa_spec_t1)
+gm_taxa_spec_t1 <- as.matrix(gm_taxa_spec_t1)
+
+cat("\nIDs match:\n")
+print(all(rownames(in24_merged_VIF) == colnames(gm_taxa_spec_t1)))
+
+
+```
+
+```{r - check class and structure - l1 }
+
+class(gm_taxa_pyl_t1.f)
+gm_taxa_pyl_t1.f <- as.matrix(gm_taxa_pyl_t1.f)
+
+cat("\nIDs match:\n")
+print(all(rownames(in24_merged_VIF) == colnames(gm_taxa_pyl_t1.f)))
+
+```
+
+
+
+################################################ OBJ CREATION AND TRANSFORMATIONS
+
+# main TSE l6
+# filtered df 
+
+```{r - define main tse objects - l6 }
+
+# main tse with genus - l5
+
+tse_taxa <- TreeSummarizedExperiment(
+  assays = SimpleList(counts = gm_taxa_spec_t1.f), # SimpleList to then store multiple assays
+  colData = DataFrame(in24_merged_VIF),
+  rowData = DataFrame(phylo_tree_l6)
+)
+
+mainExpName(tse_taxa) <- "specie_l6"
+
+```
+
+```{r - assay transformation, relabundance - l6 }
+
+# needed for alpha div
+# preview
+assay(tse_taxa, "counts") |> head()
+
+# rel abundance
+tse_taxa <- transformAssay(tse_taxa, method = "relabundance")
+assay(tse_taxa, "relabundance") |> head()
+colSums(assay(tse_taxa, "relabundance"))
+
+```
+
+```{r - zero replacement - l6 }
+
+# Handle zeros with Bayesian Multiplicative Replacement # best method for high sparse data
+assay(tse_taxa, "counts_multRep") <- cmultRepl(
+  assay(tse_taxa, "counts"), 
+  label = 0, 
+  method = "CZM", 
+  z.delete = F, 
+  output = "p-counts") 
+# without specifying output = p-counts, the default output gives rel abundances. this way the original scale is kept. 
+
+# view
+assay(tse_taxa, "counts_multRep") |> head()
+
+```
+
+```{r - clr transformation - l6 }
+
+# clr transform
+tse_taxa <- transformAssay(
+  tse_taxa, 
+  assay.type = "counts_multRep", 
+  method = "clr")
+
+assay(tse_taxa, "clr") <- as.matrix(assay(tse_taxa, "clr"))
+
+# view
+assay(tse_taxa, "clr") |> head()
+str(assay(tse_taxa, "clr"))
+```
+
+
+# subset by > 20% prev filter and preprocess
+# to run continuous analysis removing 0s 
+
+```{r - subset }
+
+tse_taxa_ab20 <- subsetByPrevalent(tse_taxa, rank = "Specie", prevalence = 0.20, detection = 0)
+
+```
+
+```{r - assay transformation, relabundance - l6 }
+
+# preview
+assay(tse_taxa_ab20, "counts") |> head()
+
+# rel abundance (for alpha div)
+tse_taxa_ab20 <- transformAssay(tse_taxa_ab20, method = "relabundance")
+assay(tse_taxa_ab20, "relabundance") |> head()
+colSums(assay(tse_taxa_ab20, "relabundance"))
+
+```
+
+```{r - zero replacement - l6 }
+
+# Handle zeros with Bayesian Multiplicative Replacement # best method for high sparse data
+assay(tse_taxa_ab20, "counts_multRep") <- cmultRepl(
+  assay(tse_taxa_ab20, "counts"), 
+  label = 0, 
+  method = "CZM", 
+  z.delete = F, 
+  output = "p-counts") 
+# without specifying output = p-counts, the default output gives rel abundances. this way the original scale is kept. 
+
+# view
+assay(tse_taxa_ab20, "counts_multRep") |> head()
+
+```
+
+```{r - check the replacement is behaving correctly }
+
+# 1. Assess stability of replacement values as they should be stable and consistent with expected variations due to features with low counts / many zeros
+    # - Range values
+    # - Min value expected to be close to zero given data sparsity (and proportionality of zero replacement, see obsidian # Preprocessing steps ## handling zeros)
+
+# Extract zero-replaced values
+replaced_values <- assay(tse_taxa_ab20, "counts_multRep")[assay(tse_taxa_ab20, "counts") == 0]
+summary(replaced_values)
+# min: 0.01 likely for features with more zeros/low counts across samples
+# very similar values in between 1st - 3rd Qu.
+# mean confirms a stable replacement 
+
+# 2. Assess Compositional integrity 
+    # the sum should be more or less the same meaning the data structure is conserved
+
+# Compare total sums pre- and post-replacement
+sum_original <- colSums(assay(tse_taxa_ab20, "counts"))
+sum_replaced <- colSums(assay(tse_taxa_ab20, "counts_multRep"))
+# mean rel diff
+all.equal(sum_original, sum_replaced)
+
+```
+
+```{r - clr transformation - l6 }
+
+# clr transform
+tse_taxa_ab20 <- transformAssay(
+  tse_taxa_ab20, 
+  assay.type = "counts_multRep", 
+  method = "clr")
+
+assay(tse_taxa_ab20, "clr") <- as.matrix(assay(tse_taxa_ab20, "clr"))
+
+# view
+assay(tse_taxa_ab20, "clr") |> head()
+str(assay(tse_taxa_ab20, "clr"))
+```
+
+```{r - scale - l6 }
+
+tse_taxa_ab20 <- transformAssay(
+  tse_taxa_ab20, 
+  assay.type = "clr", 
+  MARGIN = "rows",
+  method = "standardize")
+
+# view
+assay(tse_taxa_ab20, "standardize") |> head()
+str(assay(tse_taxa_ab20, "standardize"))
+
+```
+
+```{r - N presence by feature }
+
+# how many individuals have that features? 
+rowData(tse_taxa_ab20)$N_presence <- rowSums(assay(tse_taxa_ab20) > 0)  
+rowData(tse_taxa_ab20)$N_presence 
+
+# how many features have are present in at least 20 subjects?
+sum(rowData(tse_taxa_ab20)$N_presence>= 20)
+
+# which ones?
+names(rowData(tse_taxa_ab20)$N_presence>= 20)  
+
+# these will be those tested with subsequent models after dropping zeros 
+
+```
+
+# rarefy (absence - presence analysis is sensitive to seq depth)
+# subset by prevalence 15-85% 
+# needed to run binarized analysis (res STAI-s ~ gm [0 - 1] + HEI )
+
+```{r - rarefy and preprocess }
+
+# min count
+min = min(colSums(gm_taxa_spec_t1))
+# rarefy
+set.seed(123)
+df_rf <- rtk(gm_taxa_spec_t1, depth = min, ReturnMatrix = 1)
+# extract rarefied matrix
+mx <- as.matrix(data.frame(df_rf$raremat))
+all(colnames(mx) == in24_merged_VIF$ID)
+
+# tse obj
+tse_taxa2 <- TreeSummarizedExperiment(
+  assays = SimpleList(counts = mx),
+  colData = DataFrame(in24_merged_VIF)) # rarefied, not filtered 
+
+# names 
+tse_sub_rare <- rownames(subsetByRare(tse_taxa2, prevalence = 0.14, detection = 0)) # names of features below 5%
+tse_sub_prev <- rownames(subsetByPrevalent(tse_taxa2, prevalence = 0.86, detection = 0)) # names of features above 95%
+
+# subset
+tse_taxa_sub30 <- tse_taxa2[!((rownames(tse_taxa2) %in% tse_sub_rare | (rownames(tse_taxa2) %in% tse_sub_prev))), ]
+
+assay(tse_taxa_sub30)
+assay(tse_taxa_sub30, "binarized") <- (assay(tse_taxa_sub30) != 0) * 1L
+
+```
+
+
+# altExp, l1 (phylum data)
+
+```{r - define altExp obj - l1 }
+
+# altExp tse
+
+tse_l1 <- TreeSummarizedExperiment(
+  assays = SimpleList(counts = gm_taxa_pyl_t1.f), # SimpleList to then store multiple assays
+  colData = DataFrame(in24_merged_VIF),
+  rowData = DataFrame(phylo_tree_l1)
+)
+
+altExp(tse_taxa, "phylum_l1") <- tse_l1
+
+# view
+assay(altExp(tse_taxa, "phylum_l1"), "counts") |> head()
+
+```
+
+```{r - assay transformation, relabundance - l1 }
+
+# rel abundance (for alpha div)
+altExp(tse_taxa, "phylum_l1") <- transformAssay(altExp(tse_taxa, "phylum_l1"), method = "relabundance")
+
+colSums(assay(altExp(tse_taxa, "phylum_l1"), "relabundance"))
+
+```
+
+```{r - assay transformation, clr - l1 }
+
+# extract altExp 
+copy_l1 <- altExp(tse_taxa, "phylum_l1")
+# modify
+assay(copy_l1, "counts_multRep") <- cmultRepl(
+  assay(copy_l1, "counts"),
+  label   = 0,
+  method  = "CZM",
+  z.delete = FALSE,
+  output  = "p-counts"
+)
+# ri-assign
+altExp(tse_taxa, "phylum_l1") <- copy_l1
+# view
+assay(altExp(tse_taxa, "phylum_l1"), "counts_multRep") |> head()
+
+# clr transform
+altExp(tse_taxa, "phylum_l1") <- transformAssay(
+  altExp(tse_taxa, "phylum_l1"), 
+  assay.type = "counts_multRep", 
+  method = "clr")
+# view
+assay(altExp(tse_taxa, "phylum_l1"), "clr") |> head()
+str(assay(altExp(tse_taxa, "phylum_l1")), "clr")
+
+assay(altExp(tse_taxa, "phylum_l1"), "clr") <- as.matrix(assay(altExp(tse_taxa, "phylum_l1"), "clr"))
+
+```
+
+```{r}
+
+tse_l1_ab20 <- subsetByPrevalent(altExp(tse_taxa, "phylum_l1"), prevalence = 0.20, detection = 0)
+
+# rel abundance
+tse_l1_ab20 <- transformAssay(tse_l1_ab20, method = "relabundance")
+
+```
+
+
+
+
+# ALPHA DIVERSITY 
+
+# use measures that account for both evennes and richness
+# 1. Shannon as a purely taxon-count-based measure that account for richness + evenness
+# 2. Faith's PD to know how evolutionally broad the community is (regardless abundance, only based on presence - absence)
+# 3. Phylogenetic entropy to incorporate branch lengths and taxon abundances. It penalizes communities that have most of their abundance concentrated in closely related taxa, even if total taxon “richness” is high
+
+# cannot use phylogenetic measures as i don't have a phylogenetic tree (only the calculated hierarchical one)
+```{r - alpha after rarefaction }
+
+min = min(colSums(gm_taxa_spec_t1))
+t <- rtk(gm_taxa_spec_t1, depth = min)
+
+alpha_df <- do.call(rbind, lapply(t$divvs, function(x) {
+  data.frame(
+    ID        = x$samplename,
+    richness      = round(mean(x$richness), 0),    # integer
+    shannon       = round(mean(x$shannon), 3),     # keep 3 decimals
+    invsimpson    = round(mean(x$invsimpson), 2),  # 2 decimals is usually enough
+    chao1         = round(mean(x$chao1), 0),       # also an integer
+    evenness      = round(mean(x$eveness), 3)      # proportion, 3 decimals
+  )
+}))
+
+```
+
+
+# SAVE TSE OBJ
+
+```{r - save tse_taxa }
+
+saveRDS(tse_taxa, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
+saveRDS(tse_taxa_sub30, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_sub30.rds")
+saveRDS(tse_taxa_ab20, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_ab20.rds")
+saveRDS(tse_l1_ab20, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_l1_ab20.rds")
+saveRDS(alpha_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df.rds")
+
+```
+
+
+
+
+
+

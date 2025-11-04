@@ -1,0 +1,110 @@
+---
+title: "Gm basic stats"
+output: html_notebook
+---
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(mia)
+library(openxlsx)
+library(kableExtra)
+
+
+```
+
+```{r - upload data }
+tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds") 
+tse_gbm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds") 
+tse_ko <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_ko.rds") 
+
+```
+
+```{r - upload dependencies }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Basic_stats_utils.R")
+
+```
+
+
+# l6 
+```{r - prevalence table, l6 }
+
+# group based on HEI 
+tse_l6_k <- splitOn(tse_taxa, group = "HEI_cluster_2")  
+
+# for each subset, calculate prevalence (frequency of nonzero counts):
+prev_l6_k_list <- lapply(tse_l6_k, function(x) {
+  getPrevalence(x, assay.type = "counts", sort = F, as.relative = T)
+})
+
+# combine into a single matrix, with columns named by cluster:
+prev_l6_k_t <- do.call(cbind, prev_l6_k_list)
+colnames(prev_l6_k_t) <- paste0("HEI ", names(prev_l6_k_list))
+
+prev_l6_k_t <- as.data.frame(prev_l6_k_t)
+
+prev_l6_k_t$Specie <- rownames(prev_l6_k_t)
+
+# edit
+prev_l6_k_t <- prev_l6_k_t %>%
+  relocate(`HEI 1`, .before = `HEI 2`) %>%
+  relocate(Specie, .before = everything()) %>%
+  arrange(desc(`HEI 2`))
+
+rownames(prev_l6_k_t) <- NULL
+
+prev_l6_k_t[, 2:3] <- as.data.frame(lapply(prev_l6_k_t[2:3], round, 2))
+
+
+```
+
+```{r save, l6 }
+
+# excel 
+write.xlsx(prev_l6_k_t, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/prev_l6_k_t.xlsx")
+
+```
+
+
+# gbm
+```{r - prevalence table, gbm }
+
+# group based on HEI 
+tse_gbm_k <- splitOn(tse_gbm, group = "HEI_cluster_2")  
+
+# for each subset, calculate prevalence (frequency of nonzero counts):
+prev_gbm_k_list <- lapply(tse_gbm_k, function(x) {
+  getPrevalence(x, assay.type = "counts", sort = F, as.relative = T)
+})
+
+# combine into a single matrix, with columns named by cluster:
+prev_gbm_k_t <- do.call(cbind, prev_gbm_k_list)
+colnames(prev_gbm_k_t) <- paste0("HEI ", names(prev_gbm_k_list))
+
+prev_gbm_k_t <- as.data.frame(prev_gbm_k_t)
+
+prev_gbm_k_t$Gbm <- rownames(prev_gbm_k_t)
+
+# edit
+prev_gbm_k_t <- prev_gbm_k_t %>%
+  relocate(`HEI 1`, .before = `HEI 2`) %>%
+  relocate(Gbm, .before = everything()) %>%
+  arrange(desc(`HEI 2`))
+
+rownames(prev_gbm_k_t) <- NULL
+
+prev_gbm_k_t[, 2:3] <- as.data.frame(lapply(prev_gbm_k_t[2:3], round, 2))
+
+
+```
+
+```{r save, gbm }
+
+# excel 
+write.xlsx(prev_gbm_k_t, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/prev_gbm_k_t.xlsx")
+
+
+```
+
+
+

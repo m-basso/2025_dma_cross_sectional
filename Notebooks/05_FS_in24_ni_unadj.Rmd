@@ -1,0 +1,81 @@
+---
+title: "Basic_statistics FREE SUGARS in24"
+output: html_notebook
+---
+
+```{r - load libraries }
+library(dplyr)
+library(openxlsx)
+```
+
+
+```{r - load df }
+
+in24_ni_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/in24_ni_t1.rds")
+```
+
+```{r - load dependencies}
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/basic_stats_utils.R")
+```
+
+
+
+# RAW IN24 ------------------------------------------------
+
+```{r - FS major source}
+
+# subset df
+in24_ni_t1.FS <- in24_ni_t1[, c("ID", "days.adherence", "HEI_cluster_2", "Energy..kcal.","Total.FS_g", 
+                                "FS.Table.sugar_g","FS.Other.Added.Sugar_g","FS.Honey_g","FS.Fruit.Juice_g",
+                                "FS.Fruit.Puree_g", 
+                                "FS.Vegetable.Puree_g" )]
+
+# check if FS == FS.sources
+in24_ni_t1.FS$Total.FS_g == in24_ni_t1.FS$FS.Table.sugar_g + in24_ni_t1.FS$FS.Other.Added.Sugar_g + in24_ni_t1.FS$FS.Honey_g +
++   in24_ni_t1.FS$FS.Fruit.Juice_g + in24_ni_t1.FS$FS.Dried.Fruit_g + in24_ni_t1.FS$FS.Fruit.Puree_g + in24_ni_t1.FS$FS.Stewed.Fruit_g +
++   in24_ni_t1.FS$FS.Vegetable.Puree_g
+
+# cols to calculate rel contribution of 
+cols_rel_contribution <- intersect(c("FS.Table.sugar_g","FS.Other.Added.Sugar_g","FS.Honey_g","FS.Fruit.Juice_g",
+                                "FS.Fruit.Puree_g", 
+                                "FS.Vegetable.Puree_g"), names(in24_ni_t1.FS))
+
+# create FS sum col and calculate relative percentage of each FS source 
+in24_ni_t1.FS <- in24_ni_t1.FS %>%
+  mutate(
+    FS_sum = rowSums(cbind(FS.Table.sugar_g, FS.Other.Added.Sugar_g, FS.Honey_g, FS.Fruit.Juice_g,
+                                FS.Fruit.Puree_g, FS.Vegetable.Puree_g)),
+    across(
+      all_of(cols_rel_contribution),
+    ~ (.x /FS_sum) * 100,
+    .names = "{col}_perc"
+    )
+  )
+
+  
+```
+
+```{r - FS sources ds statistics}
+
+# define cols
+cols_to_summ <- intersect(c("FS.Table.sugar_g_perc","FS.Other.Added.Sugar_g_perc","FS.Honey_g_perc","FS.Fruit.Juice_g_perc",
+                                "FS.Fruit.Puree_g_perc", 
+                                "FS.Vegetable.Puree_g_perc"), names(in24_ni_t1.FS))
+
+# calculate summary stats
+FS_ds_k <- calculate_ds_stat(in24_ni_t1.FS, group_var = HEI_cluster_2, cols_med = cols_to_summ)
+
+# Wilcoxon test
+FS_ds_k$p <- apply_t_w_test_across(in24_ni_t1.FS, cols_w = cols_to_summ, IV = HEI_cluster_2)
+
+# Adjust p-values for multiple testing
+FS_ds_k$p.adj <- p.adjust(FS_ds_k$p, method = 'BH')
+
+# round
+FS_ds_k$p <- round(FS_ds_k$p, 3)
+FS_ds_k$p.adj <- round(FS_ds_k$p.adj, 3)
+
+# Save
+write.xlsx(FS_ds_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_FS.xlsx", rowNames = TRUE)
+
+```

@@ -1,0 +1,544 @@
+---
+title: "Diet - Anxiety Models"
+output: html_notebook
+---
+
+
+```{r - load libraries }
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(ggbeeswarm)
+library(car)
+library(kableExtra)
+library(openxlsx)
+library(e1071)
+library(robustbase)
+library(purrr)
+library(rlang)      # for .data pronoun
+library(patchwork)  # wrap_plots
+library(scales)     # percent_format
+
+```
+
+
+```{r - upload dependencies }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Gm_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/EDA_utils.R")
+
+```
+
+```{r - upload datasets }
+# merged and scaled
+in24_f_medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_f_medoids.rds")
+in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+FFQ_p_ni_t1.adj_scaled <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.adj_scaled.rds")
+metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+df_p_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1.rds")
+
+
+```
+
+
+```{r}
+
+# set control parameters for the S- and M- steps
+
+ctrl <- lmrob.control(
+  setting = "KS2014", # specific configuration of settings and efficiency-breakdown trade-off developed to optimize robustness and efficiency, less senstive to influential data points 
+  maxit.scale = 500, # how many loops in the S-step to find_scale() solver (= estimate of residual spread ignoring outliers)
+  k.max = 2000, # how many loops in the S-step to find the S coefficient
+  max.it = 1000) # how many loops in the MM‐step to refine the coefficient
+
+```
+
+
+
+
+############################################ METADATA
+
+```{r - metadata }
+
+# select num cols
+cols <- colnames(metadata_t1)[3:11]
+
+# attach outcome
+metadata_t1 <- left_join(metadata_t1, in24_merged_VIF[, c("ID", "STAI.s_score_scaled")], by = "ID")
+
+# set names 
+rownames(metadata_t1) <- metadata_t1$ID
+
+# run lrob
+lmrob_metadata <- lapply(metadata_t1[, cols], function(x) {
+  lmrob(
+    STAI.s_score_scaled ~ x,
+    data = metadata_t1,
+    control = ctrl
+  )
+}
+  )
+
+# create table
+lmrob_md_df <- lmrob_table(lmrob_metadata, length(lmrob_metadata))
+
+# save 
+write.xlsx(lmrob_md_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_metadata.xlsx", rowNames = T)
+
+```
+
+```{r - check sign cov - HEI link }
+
+# GSRS: ns
+m1 <-  lmrob(GSRS.tot_scaled ~ HEI_cluster_2, data = metadata_t1, control = ctrl)
+summary(m1) 
+
+# DASS: ns 
+m2 <-lmrob(DASS.21.s_score_scaled ~ HEI_cluster_2, data = metadata_t1, control = ctrl)
+summary(m2)
+
+# perceived stress is part of the anxiety construct (stress can be a trigger and main factor for anx and physiological stress linked to the HPA could the same way trigger anx or contribute to symptoms)
+
+# GI symptoms are considered a co-morbid condition and could confound results --> are people more anx because they are experiencing more symptoms? especially if sympoms are correlated to diet and gm health 
+
+# so --> take residuals from GI regression --> 70% of STAI-s variance that is not explained by GSRS 
+
+```
+
+```{r - extract STAI-s ~ GSRS residuals }
+
+# summary and confint
+summary(lmrob_metadata$GSRS.tot_scaled)
+confint(lmrob_metadata$GSRS.tot_scaled, level = 0.95)
+
+# extract 
+res <- lmrob_metadata$GSRS.tot_scaled$residuals
+# attach
+in24_merged_VIF$STAI.s_sc_res <- res[match(in24_merged_VIF$ID, names(res))]
+in24_merged_VIF$STAI.s_sc_res <- as.numeric(scale(in24_merged_VIF$STAI.s_sc_res))
+metadata_t1$STAI.s_sc_res <- res[match(metadata_t1$ID, names(res))]
+metadata_t1$STAI.s_sc_res <- as.numeric(scale(metadata_t1$STAI.s_sc_res))
+
+# save 
+saveRDS(in24_merged_VIF, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds") # now stai res is further attached
+saveRDS(metadata_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds") # now stai scaled and res are attached
+
+```
+
+
+
+############################################ HEI clusters
+
+```{r STAI-s ~ HEI  }
+
+# lmrob
+lmrob_hei <- lmrob(STAI.s_sc_res ~ HEI_cluster_2, data = in24_merged_VIF, control = ctrl)
+summary(lmrob_hei)
+
+confint(lmrob_hei, level = 0.95)
+
+```
+
+```{r - visualize }
+
+hei_stai_p <- ggplot(in24_merged_VIF, aes(x = HEI_cluster_2, y = STAI.s_sc_res)) +
+  geom_violin(aes(fill = HEI_cluster_2), alpha = 0.4, color = NA, trim = FALSE) +
+  scale_fill_manual(
+    name = "HEI cluster",
+    values = c("2" = "#d95f02", "1" = "#1b9e77")) +
+  geom_boxplot(outlier.shape = "square") +
+  geom_beeswarm(alpha = 0.5, size = 2.5, cex = 3) +
+  labs(x = "HEI Cluster", y = "Residualized STAI-s") +
+  geom_signif(comparisons = list(c("1", "2")), map_signif_level = TRUE) +
+  theme_minimal() +
+  theme(
+    axis.title = element_text(face = "bold")
+  )
+
+# save 
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_STAI_k.png", bg = "white", plot = hei_stai_p, width = 6, height = 4, dpi = 300)
+
+```
+
+
+
+
+############################################  LT diet vars
+
+```{r - FFQ + metadata }
+
+ffq_merged <- left_join(FFQ_p_ni_t1.adj_scaled, metadata_t1[, c("ID", "STAI.s_sc_res")], by = "ID")
+
+```
+
+```{r - STAI-s ~ FFQ + HEI }
+
+# vector 
+cols_ffq <- colnames(ffq_merged)[4:11]
+
+# model
+lmrob_lt <- apply(ffq_merged[, cols_ffq], 2, function(x) lmrob(STAI.s_sc_res ~ x + HEI_cluster_2, data =ffq_merged, control = ctrl))
+
+# create table
+lmrob_lt_df <- lmrob_table(lmrob_lt, length(lmrob_lt))
+
+# save excel
+write.xlsx(lmrob_lt_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_lt.xlsx", rowNames = T)
+
+```
+
+```{r - run moderation }
+
+apply(ffq_merged[, cols_ffq], 2, function(x) summary(lmrob(STAI.s_sc_res ~ x * HEI_cluster_2, data =ffq_merged, control = ctrl))) # ns moderation
+
+```
+
+```{r - run checks on SAT FATS }
+
+# check collinearity
+car::vif(lmrob(STAI.s_sc_res ~ `Sat_FAs(g)` * HEI_cluster_2, data =ffq_merged, control = ctrl)) # ok
+
+# visualize by HEI
+ggplot(ffq_merged, aes(x = `Sat_FAs(g)`, y = STAI.s_sc_res, colour = HEI_cluster_2)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lmrob", se = TRUE) # steeper negative slope for HEI 1 but same pattern
+
+# does effect change based on HEI group?
+summary(lmrob(STAI.s_sc_res ~ `Sat_FAs(g)` * HEI_cluster_2, data =ffq_merged, control = ctrl)) # no sign interaction term
+
+# for saturated fats the slope is steeper for HEI 1 but the difference with slope in HEI 2 is not significant 
+# nothing interest for others 
+
+
+```
+
+
+############################################  ST diet vars
+
+```{r STAI-s ~ ST + HEI }
+
+cols_in24 <- colnames(in24_merged_VIF)[c(3:12, 35:36)]# anx 
+lmrob_st  <- apply(in24_merged_VIF[, cols_in24], 2, function(x) lmrob(STAI.s_sc_res ~ x + HEI_cluster_2, data = in24_merged_VIF, control = ctrl))
+
+# create table
+lmrob_st_df <- lmrob_table(lmrob_st, length(lmrob_st))
+
+# save excel
+write.xlsx(lmrob_st_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_st.xlsx", rowNames = T)
+
+
+```
+
+```{r - STAI-s ~ ST * HEI }
+
+apply(in24_merged_VIF[, cols_in24], 2, function(x) summary(lmrob(STAI.s_sc_res ~ x * HEI_cluster_2, data =in24_merged_VIF, control = ctrl))) # ns moderation
+
+```
+
+
+###################################################### anx categorical
+
+```{r - check categories }
+
+# look at distribution of low_medium vs high scores
+
+ggplot(in24_merged_VIF, aes(x = STAI.s_score, fill = STAI_s_cat.binary)) + 
+  geom_density(alpha = 0.4) + 
+  theme_minimal()
+
+ggplot(in24_merged_VIF, aes(x = STAI.s_score, fill = STAI_s_cat.binary)) + 
+  geom_histogram(position="identity") + 
+  theme_minimal()
+
+in24_merged_VIF %>% group_by(STAI_s_cat.binary) %>% summarise("min anx" = min(STAI.s_score), "max anx" = max(STAI.s_score))
+
+```
+
+```{r - STAI cat ~ HEI + GSRS }
+
+# control for GI as here I cannot residualise 
+in24_merged_VIF <- left_join(in24_merged_VIF, metadata_t1[, c("ID", "GSRS.tot_scaled")], by = "ID")
+
+model <- glmrob(STAI_s_cat.binary ~ HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =in24_merged_VIF)
+
+summary(model)
+
+# Robust Wald CIs
+coefs <- coef(model)
+se <- sqrt(diag(vcov(model)))
+
+OR_CI <- exp(cbind(OR = coefs, 
+                  lower = coefs - 1.96 * se,
+                  upper = coefs + 1.96 * se))
+OR_CI
+
+or_value <- exp(coef(model)["HEI_cluster_22"]) # or value is 0.19 so 1-0.19 = ~ 80 lower odds 
+percentage_change <- (1 - or_value) * 100
+print(percentage_change)
+
+```
+
+```{r - STAI cat ~ lt + HEI + GSRS }
+
+ffq_merged <- left_join(ffq_merged, metadata_t1[, c("ID", "GSRS.tot_scaled")], by = "ID")
+
+fit_lt <- apply(ffq_merged[, cols_ffq], 2, function(x) summary(glmrob(STAI_s_cat.binary ~ x + HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =ffq_merged)))
+
+```
+
+
+```{r - STAI cat ~ st + HEI + GSRS}
+
+fit_st <- apply(in24_merged_VIF[, cols_in24], 2, function(x) summary(glmrob(STAI_s_cat.binary ~ x + HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =in24_merged_VIF)))
+
+```
+
+```{r}
+
+fit_lt_mod <- apply(ffq_merged[, cols_ffq], 2, function(x) summary(glmrob(STAI_s_cat.binary ~ x * HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =ffq_merged)))
+
+```
+
+```{r} #
+# run glm binomial 
+cols_in24 <- c("Satd_to_Unsatd.FA", "Satd.FA_g", "PUFAs_g", "Dim.1", "Dim.2")
+fit <- apply(in24_merged_VIF[, cols_in24], 2, function(x) 
+  summary(glmrob(STAI_s_cat.binary ~ x * HEI_cluster_2 + GSRS.tot_scaled, 
+                 family = "binomial", data = in24_merged_VIF)))
+
+# --- Collect and adjust p-values for all variables ---
+pvals_tbl <- purrr::map_dfr(cols_in24, function(var) {
+  fml <- as.formula(sprintf("STAI_s_cat.binary ~ `%s` * HEI_cluster_2 + GSRS.tot_scaled", var))
+  fit <- robustbase::glmrob(fml, family = binomial(), data = in24_merged_VIF)
+  cs  <- summary(fit)$coefficients
+  rn  <- rownames(cs)
+
+  main_idx <- grepl(paste0("`?", var, "`?$"), rn) | grepl(paste0("^`?", var, "`?\\b"), rn)
+  inter_idx <- grepl(paste0(":", var, "`?$"), rn) | grepl(paste0("^`?", var, "`?:"), rn)
+
+  tibble::tibble(
+    var,
+    term_type = c(rep("main", sum(main_idx)), rep("interaction", sum(inter_idx))),
+    term      = c(rn[main_idx], rn[inter_idx]),
+    p_raw     = c(cs[main_idx, "Pr(>|z|)"], cs[inter_idx, "Pr(>|z|)"])
+  )
+})
+
+pvals_tbl <- pvals_tbl %>%
+  dplyr::mutate(p_adj = p.adjust(p_raw, method = "BH"))
+
+p_min_tbl <- pvals_tbl %>%
+  dplyr::group_by(var, term_type) %>%
+  dplyr::summarise(p_adj = min(p_adj, na.rm = TRUE), .groups = "drop")
+
+# --- New get_significance() that uses adjusted p-values ---
+get_significance <- function(var) {
+  p_main  <- p_min_tbl %>% dplyr::filter(var == !!var, term_type == "main") %>% dplyr::pull(p_adj)
+  p_inter <- p_min_tbl %>% dplyr::filter(var == !!var, term_type == "interaction") %>% dplyr::pull(p_adj)
+
+  sig_main  <- length(p_main)  > 0 && is.finite(p_main)  && p_main  < 0.2
+  sig_inter <- length(p_inter) > 0 && is.finite(p_inter) && p_inter < 0.2
+
+  dplyr::case_when(
+    sig_main & sig_inter ~ "Main + Interaction (q < 0.2)",
+    sig_main             ~ "Main Effect (q < 0.2)",
+    sig_inter            ~ "Interaction (q < 0.2)",
+    TRUE                 ~ "Not Significant (q)"
+  )
+}
+
+```
+
+
+
+
+```{r glm full moderation model }
+
+fit <- apply(in24_merged_VIF[, cols_in24], 2, function(x) summary(glmrob(STAI_s_cat.binary ~ x * HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =in24_merged_VIF)))
+
+```
+
+```{r - check PUFAs results }
+
+model <- glmrob(STAI_s_cat.binary ~ PUFAs_g + GSRS.tot_scaled,
+                            family = "binomial", data = in24_merged_VIF)
+
+cs <- summary(model)$coefficients
+b  <- cs["PUFAs_g","Estimate"]
+se <- cs["PUFAs_g","Std. Error"]
+
+# OR and Wald 95% CI
+or      <- exp(b)
+or_low  <- exp(b - 1.96*se)
+or_high <- exp(b + 1.96*se)
+
+# Percent change in odds per 1-unit increase
+# (negative = lower odds, positive = higher odds)
+pct      <- (or - 1) * 100
+pct_low  <- (or_low - 1) * 100
+pct_high <- (or_high - 1) * 100
+
+sprintf("OR = %.2f (95%% CI %.2f–%.2f); Δodds = %.0f%% (%.0f%% to %.0f%%)",
+        or, or_low, or_high, pct, pct_low, pct_high)
+
+
+```
+
+
+```{r - process and visualize }
+
+# The model predicts the probability of being in one category - ranging from 0 to 1
+# So when plotting predicted probabilities across a range of values for X, I get a smooth curve as the model estimates how the probability changes gradually, along the range of X values. 
+# the model fits a smooth curve to estimate how likely someone is to be in the "1" category depending on their predictor value
+# use geom_line to link predicted probabilities across the range of variable
+
+# names 
+name_map <- c(
+  "Protein_g" = "Protein (g)",
+  "Englyst.fibre_g" = "Fibers (g)",
+  "Total.FS_g" = "Free sugars (g)",
+  "Satd.FA_g" = "Saturated fats (g)",
+  "PUFAs_g" = "PUFAs (g)",
+  "Micronutrients_tot_mg" = "Micronutrients (mg)",
+  "Minerals_tot_mg" = "Minerals (mg)",
+  "Cis.n6_to_Cis.n3" = "Omega-6/omega-3 FAs (ratio)",
+  "Satd_to_Unsatd.FA" = "Sat/unsat FAs (ratio)",
+  "Na_to_K" = "Na/K (ratio)",
+  "Dim.1"  = "Dimension 1",
+  "Dim.2" = "Dimension 2"
+  )
+
+pretty_name <- function(x) if (!is.null(name_map[[x]])) name_map[[x]] else x
+
+# --- helper functions ---------------------------------------------------------------
+
+pretty_p <- function(p) {
+  if (is.na(p)) return("NA") # na control
+  if (p < 1e-4) return("< 1e-4") # p values controls
+  if (p < 0.001) return("< 0.001")
+  if (p < 0.01)  return(sprintf("%.3f", p))
+  sprintf("%.3f", p)
+}
+
+# get p values from model
+get_pvalues <- function(var) {
+  fml <- as.formula(sprintf("STAI_s_cat.binary ~ `%s` * HEI_cluster_2 + GSRS.tot_scaled", var))
+  fit <- robustbase::glmrob(fml, family = binomial(), data = in24_merged_VIF)
+  cs  <- summary(fit)$coefficients
+
+  # rows for the main effect of var, and interaction terms containing var:
+  main_row <- grepl(paste0("^`?", var, "`?$"), rownames(cs)) |  # backticked or not
+              (grepl(var, rownames(cs)) & !grepl(":", rownames(cs)))
+  inter_row <- grepl(var, rownames(cs)) & grepl(":", rownames(cs))
+
+  p_main <- if (any(main_row)) cs[which(main_row), "Pr(>|z|)"] else NA_real_
+
+  # If there are multiple interaction rows (e.g., factor coding), keep all and also compute a min
+  p_inter_vec <- if (any(inter_row)) cs[which(inter_row), "Pr(>|z|)"] else NA_real_
+  list(p_main = p_main, p_inter = p_inter_vec)
+}
+
+get_pvalues_label <- function(var) {
+  pv <- get_pvalues(var)
+  pm <- if (length(pv$p_main) > 1) pv$p_main[1] else pv$p_main
+  lab_main <- paste0("Main p = ", pretty_p(pm))
+
+  if (all(is.na(pv$p_inter))) {
+    lab_inter <- "Interaction p = NA"
+  } else if (length(pv$p_inter) == 1) {
+    lab_inter <- paste0("Interaction p = ", pretty_p(pv$p_inter))
+  } else {
+    # show both the min and the vector (abbrev) if multiple interaction rows exist
+    lab_inter <- paste0(
+      "Interaction p = ",
+      pretty_p(min(pv$p_inter, na.rm = TRUE)),
+      " (terms: ",
+      paste(pretty_p(pv$p_inter), collapse = ", "),
+      ")"
+    )
+  }
+  paste(lab_main, lab_inter, sep = " • ")
+}
+
+# --- plotting --------------------------------------------------------------
+
+plot_me <- function(var) {
+  # robust logistic with interaction + GSRS (note the backticks)
+  fml <- as.formula(sprintf("STAI_s_cat.binary ~ `%s` * HEI_cluster_2 + GSRS.tot_scaled", var))
+
+  # Fit model safely
+  fit <- tryCatch(
+    robustbase::glmrob(fml, family = binomial(), data = in24_merged_VIF),
+    error = function(e) stop(sprintf("Model failed for '%s': %s", var, e$message))
+  )
+
+  # Hold GSRS at its mean (0 as scaled)
+  gsrs_hold <- if ("GSRS.tot_scaled" %in% names(in24_merged_VIF)) {
+    m <- mean(in24_merged_VIF$GSRS.tot_scaled, na.rm = TRUE); if (is.finite(m) && abs(m) < 1e-8) 0 else m
+  } else 0
+
+  # Build x grid from 5th to 95th percentile (to filter out outlier data, just for quality)
+  xvec <- in24_merged_VIF[[var]]
+  xr <- stats::quantile(xvec, c(.05, .95), na.rm = TRUE, type = 7)
+  x_seq <- seq(xr[[1]], xr[[2]], length.out = 100)
+
+  # Ensure HEI is a factor with explicit levels (so predict/newdata matches)
+  hei_levels <- levels(as.factor(in24_merged_VIF$HEI_cluster_2))
+  if (is.null(hei_levels)) hei_levels <- sort(unique(in24_merged_VIF$HEI_cluster_2))
+
+  nd <- expand.grid(
+    HEI_cluster_2   = hei_levels,
+    GSRS.tot_scaled = gsrs_hold,
+    KEEP.OUT.ATTRS  = FALSE
+  )
+  nd <- nd[rep(seq_len(nrow(nd)), each = length(x_seq)), , drop = FALSE]
+  nd[[var]] <- rep(x_seq, times = nrow(nd) / length(x_seq))
+
+  # Predict on link scale with SE, then transform
+  pr <- predict(fit, newdata = nd, type = "link", se.fit = TRUE)
+  nd$prob    <- plogis(pr$fit)
+  nd$prob_lo <- plogis(pr$fit - 1.96 * pr$se.fit)
+  nd$prob_hi <- plogis(pr$fit + 1.96 * pr$se.fit)
+
+  # p-value subtitle
+  p_sub <- get_pvalues_label(var)
+
+  # Plot
+  ggplot2::ggplot(nd, ggplot2::aes(x = .data[[var]], y = prob, colour = HEI_cluster_2, fill = HEI_cluster_2)) +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = prob_lo, ymax = prob_hi), alpha = 0.15, colour = NA) +
+    ggplot2::geom_line(linewidth = 1) +
+    ggplot2::labs(
+      x = pretty_name(var),
+      y = "Probability of moderate-to-high anxiety",
+      title = paste0("Effect of ", pretty_name(var)),
+      subtitle = p_sub
+    ) +
+    scale_color_manual(name = "HEI cluster", values = c("1" = "#1b9e77", "2" = "#d95f02")) +
+    scale_fill_manual(name  = "HEI cluster", values = c("1" = "#1b9e77", "2" = "#d95f02")) +
+    ggplot2::scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0,1)) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(legend.position = "bottom") +
+    theme(
+    axis.title.y   = element_text(face = "bold"),   # axis labels
+    plot.title   = element_text(face = "bold")  # main title
+  )
+}
+
+# --- run over vars ----------------------------------------------
+
+vars  <- cols_in24
+plots <- purrr::map(vars, plot_me)
+names(plots) <- vars
+
+plot <- patchwork::wrap_plots(plots, axes = "collect", guides = "collect")
+
+# save
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/exploratory_plot.png", bg = "white", plot = plot, width = 15, height = 10, dpi = 600) 
+
+
+```
+
+
+
+

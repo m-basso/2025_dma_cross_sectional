@@ -1,0 +1,620 @@
+---
+title: "Main EDA"
+output: html_notebook
+---
+
+# this notebook perform EDA of HEI scores and outcomes 
+
+```{r - load libraries }
+library(dplyr)
+library(ggplot2)
+library(car)  # For QQ plots
+library(corrplot)  # For correlation matrix
+library(Hmisc)  # For rcorr
+library(factoextra)  # For PCA and visualizations
+library(cluster)  # For silhouette analysis
+library(patchwork)
+library(multimode)
+```
+
+```{r - source }
+#source preprocessing script
+rmarkdown::render("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Notebooks/02_Diet_specific_preprocessing.Rmd", output_format = NULL)
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/EDA_utils.R")
+
+#confirm the df is available to use
+head(df_p_t1)
+head(FFQ_p_ni_t1)
+head(FFQ_p_ni_t1.adj.lm)
+head(in24_ni_t1)
+head(in24_ni_t1.adj.lm)
+head(in24_fi_t1.adj.cat)
+head(in24_fg_t1.adj)
+head(in24_fg_t1.adj.cat)
+
+```
+
+
+################################      HEI       
+
+```{r HEI - distribution }
+
+# Q-Q plot for HEI
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_qqplot.png",  width = 1800, height = 1200, res = 300)
+qqPlot(df_p_t1$HEI.2020_tot)
+
+# Kernel Density Plot
+# smoothed version of a histogram that estimates the probability density function of a continuous variable. It helps visualize the distribution of data without the dependency on bin sizes, as in histograms.
+
+rng   <- range(df_p_t1$HEI.2020_tot, na.rm = TRUE)  
+xmin  <- floor(min(rng) / 10) * 10                
+xmax  <- ceiling(max(rng) / 10) * 10              
+x_brk <- seq(xmin, xmax, by = 10)               
+
+# density
+HEI_dens <- ggplot(df_p_t1, aes(HEI.2020_tot)) +
+  geom_density(fill = "steelblue", alpha = .5) +
+  scale_x_continuous(limits = c(xmin, xmax), breaks = x_brk, expand = c(0, 0)) +
+  labs(title = "Kernel density", x = NULL, y = "Density")
+
+# histogram 
+HEI_hist <- ggplot(df_p_t1, aes(HEI.2020_tot)) +
+  geom_histogram(binwidth = 2, fill = "steelblue", alpha = .5) +
+  scale_x_continuous(limits = c(xmin, xmax), breaks = x_brk, expand = c(0, 0)) +
+  labs(title = "Histogram", x = "HEI-2020 score", y = "Frequency")
+
+HEI_distr <- wrap_plots(HEI_dens, HEI_hist, ncol = 1, axes = "collect_x") +
+  plot_layout(guides = "collect")
+
+HEI_distr
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_distr.png", bg = "white", plot = HEI_distr, width = 10, height = 6, dpi = 300)
+
+
+# multimodality test
+modetest(df_p_t1$HEI.2020_tot)
+
+# check HEI 
+HEI_boxplot <- ggplot(df_p_t1, aes(x = "", y = HEI.2020_tot)) +
+  geom_boxplot(width = 0.2, outlier.colour = "red") +
+  geom_beeswarm(size = 1.5, alpha = 0.7) +
+  labs(title = "Boxplot and Beeswarm of HEI-2020 Scores",
+       y = "HEI-2020 Score",
+       x = NULL) +
+  theme_minimal()
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_boxplot.png", bg = "white", plot = HEI_boxplot, width = 10, height = 6, dpi = 300)
+
+```
+
+#INTERPRETATION OF QQPLOT + KERNEL + HISTOGRAM
+#The Q-Q plot suggests that while the central portion of my data follows a normal distribution reasonably well, there are deviations in the tails. 
+#This can be consistent with a bimodal distribution, where two subpopulations might be present, leading to heavier tails or deviations at the extremes.
+#this is further corroborated by the presence of two peaks in the kernel plot, and histogram. 
+#SPECIFICALLY The histogram has two prominent peaks, one around the 70-75 range and another around the 80-85 range and 
+#The presence of gaps and troughs between these peaks further supports the existence of two separate distributions within the data
+
+
+```{r HEI clustering analysis }
+
+# HEI CLUSTERING ANALYSIS
+# K-means clustering with 2 clusters
+set.seed(123)
+kmeans_2 <- kmeans(df_p_t1$HEI.2020_tot, centers = 2) #return a LIST where data are assigned either to CL 1 or 2 
+df_p_t1$HEI_cluster_2 <- as.factor(kmeans_2$cluster)  #assigns CL label
+
+# swap names of clusters (so 1 is lower, 2 is higher HEI)
+df_p_t1 <- df_p_t1 %>%
+  mutate(HEI_cluster_2 = ifelse(HEI_cluster_2 == 1, 2, 1))
+# factorize
+df_p_t1$HEI_cluster_2 = as.factor(df_p_t1$HEI_cluster_2)
+
+# Visualize the clusters with a Kernel plot again
+density_HEI_K <- ggplot(df_p_t1, aes(x = HEI.2020_tot, fill = HEI_cluster_2)) +
+  geom_density(alpha = 0.5, position = "identity") +
+  scale_fill_manual(
+        name = "HEI cluster",
+        values = c(
+            "2" = "#d95f02",
+            "1" = "#1b9e77"
+        )) +
+  labs(title = "Kernel Density Plot of HEI-2020 Scores by Cluster (2)", x = "HEI-2020 Score", y = "Density") + theme_minimal()
+
+# compute cluster means
+means <- df_p_t1 %>%
+  group_by(HEI_cluster_2) %>%
+  summarise(mean_HEI = mean(HEI.2020_tot))
+
+# add dashed vlines at each mean
+density_HEI_K <- density_HEI_K +
+  geom_vline(
+    data = means,
+    aes(xintercept = mean_HEI),
+    linetype = "dashed",
+    size     = 0.8
+  )
+
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/density_HEI_K.png", bg = "white", plot = density_HEI_K, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r HEI clusters evaluation}
+
+# Elbow method to determine the optimal number of clusters
+# This method involves plotting the WCSS against the number of clusters and identifying the "elbow" point where the rate of decrease slows down.
+
+wcss <- sapply(1:10, function(k){                                         #to apply k-means clustering for k ranging 1 to 10
+  kmeans(df_p_t1$HEI.2020_tot, centers = k, nstart = 10)$tot.withinss     #kmeans function applied to HEI column and returning ($) wcss for "k" clusters.
+                                                                          #nstart = 10 parameter specifies that the algorithm should be run 10 times with different random starting 
+                                                                          #points and the best result is chosen.
+})
+
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/HEI_k_elbow.png",  width = 1800, height = 1200, res = 300)
+plot(1:10, wcss, type = "b", pch = 19, xlab = "Number of clusters K", ylab = "WCSS")
+
+# Silhouette analysis for K=2
+# This computes the silhouette information for each point, which measures how similar a point is to its own cluster compared to other cluster.
+# WIDTH [-1, 1] with values closer to 1 meaning better match to own cluster and poor match with neighboring clusters. width > 50 indicates points are well clustered.
+# AVERAGE SIL WIDTH meaning sil for all data point as an overall metric of fitness
+
+sil_k2 <- silhouette(kmeans_2$cluster, dist(df_p_t1$HEI.2020_tot))
+
+# Silhouette analysis for K=3
+set.seed(123)
+k3 <- kmeans(df_p_t1$HEI.2020_tot, centers = 3)
+sil_k3 <- silhouette(k3$cluster, dist(df_p_t1$HEI.2020_tot))
+
+# plot  
+# k2
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/HEI_k2_silhouette.png",  width = 1800, height = 1200, res = 300)
+plot(sil_k2, col = 1:2, border = NA, main = "Silhouette for k = 2") #This plots the silhouette information with different colors for each cluster.
+
+# k3
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/HEI_k3_silhouette.png",  width = 1800, height = 1200, res = 300)
+plot(sil_k3, col = 1:3, border = NA, main = "Silhouette for k = 3")
+
+```
+
+#INTERPRETATION OF ELBOW & SILHOUETTE
+#Based on the Elbow method, the biggest drops in WCSS happens when moving from 2 to 3, leveling off from 4.
+
+#Based on Silhouette analysis, the 2-clusters solution has the highest (individual and) average width (0.65) indicating well-defined clusters with good separation.
+#The 3-cluster solution also has reasonably well-defined clusters. However, the lower average silhouette width (0.64) and the presence of 
+#a poorly clustered second group suggest that it is not as optimal as the 2-cluster solution. 4-clusters was 0.58 so not to consider. 
+
+#the 3-clusters solution might be chosen as a good trade-off between structure and separation of clusters and minimization of WCSS/variance within clusters. 
+#However, I decide to prioritize cluster quality and separation (which starts degrading with +2 clusters), and interpretability (as I need clustering for pp stratification
+#and/or pp description)
+
+
+```{r HEI scores distribution & basic statistics }
+
+#check distribution within each cluster
+#QQ PLOTS
+HEI_qq_k <- ggplot(df_p_t1, aes(sample = HEI.2020_tot)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_wrap(~ HEI_cluster_2) +
+  labs(title = "Q-Q plots of HEI-2020 by Cluster", x = "Theoretical Quantiles", y = "Sample Quantiles")
+HEI_qq_k
+#SHAPIRO TEST
+Shapiro_k_HEI <- df_p_t1 %>%
+  group_by(HEI_cluster_2) %>%
+  summarise(shapiro_p_value = shapiro.test(HEI.2020_tot)$p.value)
+Shapiro_k_HEI
+
+# save 
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_qq_k.png", bg = "white", plot = HEI_qq_k, width = 10, height = 6, dpi = 300)
+
+```
+
+
+#################################      METADATA
+
+```{r METADATA distribution within clusters}
+
+#BMI
+qqPlot(df_p_t1$BMI[df_t1_p$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1$BMI[df_t1_p$HEI_cluster_2 == "2"]) 
+shapiro.test(df_p_t1$BMI[df_t1_p$HEI_cluster_2 == "1"])
+shapiro.test(df_p_t1$BMI[df_t1_p$HEI_cluster_2 == "2"]) 
+#NON PARAMETRIC
+
+#AGE
+qqPlot(df_p_t1$Age_T0[df_t1_p$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1$Age_T0[df_t1_p$HEI_cluster_2 == "2"]) 
+shapiro.test(df_p_t1$Age_T0[df_t1_p$HEI_cluster_2 == "1"])
+shapiro.test(df_p_t1$Age_T0[df_t1_p$HEI_cluster_2 == "2"])
+#PARAMETRIC
+
+# STAI-t
+qqPlot(df_p_t1$STAI.t_0[df_p_t1$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1$STAI.t_0[df_p_t1$HEI_cluster_2 == "2"]) 
+shapiro.test(df_p_t1$STAI.t_0[df_p_t1$HEI_cluster_2 == "1"])
+shapiro.test(df_p_t1$STAI.t_0[df_p_t1$HEI_cluster_2 == "2"])
+# PARAMETRIC
+
+# WASI
+qqPlot(df_p_t1$WASI...tot.comp.score[df_p_t1$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1$WASI...tot.comp.score[df_p_t1$HEI_cluster_2 == "2"]) 
+shapiro.test(df_p_t1$WASI...tot.comp.score[df_p_t1$HEI_cluster_2 == "1"])
+shapiro.test(df_p_t1$WASI...tot.comp.score[df_p_t1$HEI_cluster_2 == "2"])
+# PARAMETRIC
+
+# GSRS
+qqPlot(df_p_t1$GSRS.tot[df_p_t1$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1$GSRS.tot[df_p_t1$HEI_cluster_2 == "2"]) 
+shapiro.test(df_p_t1$GSRS.tot[df_p_t1$HEI_cluster_2 == "1"])
+shapiro.test(df_p_t1$GSRS.tot[df_p_t1$HEI_cluster_2 == "2"])
+# NON PARAMETRIC
+
+# DASS-21 stress
+qqPlot(df_p_t1$DASS.21.s_score[df_p_t1$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1$DASS.21.s_score[df_p_t1$HEI_cluster_2 == "2"]) 
+shapiro.test(df_p_t1$DASS.21.s_score[df_p_t1$HEI_cluster_2 == "1"])
+shapiro.test(df_p_t1$DASS.21.s_score[df_p_t1$HEI_cluster_2 == "2"])
+# NON PARAMETRIC
+
+```
+
+
+
+#################################        OUTCOMES
+
+```{r OUTCOMES create df }
+
+# Split the df_t1_p for outcome-related variables
+df_p_t1_outcomes <- df_p_t1 %>%
+  dplyr::select(ID, STAI.s_score, GAD.7_score, BDI_score, PHQ.9_score, PANAS_n, PANAS_p, DASS.21.a_score, 
+         DASS.21.d_score, DASS.21.s_score, DASS.21_tot, ERQ_reappraisal, ERQ_suppression, 
+         GSRS.Diarrhoea, GSRS.Indigestion, GSRS.Constipation, GSRS.abdominal.pain, GSRS.reflux, GSRS.tot)
+
+rownames(df_p_t1_outcomes) <- df_p_t1_outcomes$ID
+
+df_p_t1_outcomes <- df_p_t1_outcomes %>% select(-ID)
+
+# Confirm the split dataset
+head(df_p_t1_outcomes)
+
+```
+
+```{r OUTCOMES distribution }
+
+# Perform Shapiro test for normality
+shapiro_test_outcomes <- sapply(df_p_t1_outcomes, function(x) {
+  if (length(unique(x)) > 2) {  #check for at least 3 unique values
+    shapiro.test(x)$p.value
+  } else {
+    NA  #return NA if not enough unique values
+  }
+})
+shapiro_test_outcomes
+
+# QQ plots
+qqPlot(df_p_t1_outcomes$STAI.s_score) # p 
+qqPlot(df_p_t1_outcomes$GAD.7_score) # np
+qqPlot(df_p_t1_outcomes$BDI_score) # np
+qqPlot(df_p_t1_outcomes$PHQ.9_score) # np
+qqPlot(df_p_t1_outcomes$PANAS_n) # np
+qqPlot(df_p_t1_outcomes$PANAS_p) # p
+qqPlot(df_p_t1_outcomes$DASS.21.a_score) # np
+qqPlot(df_p_t1_outcomes$DASS.21.s_score) # np
+qqPlot(df_p_t1_outcomes$DASS.21_tot) # np
+qqPlot(df_p_t1_outcomes$ERQ_reappraisal) # p 
+qqPlot(df_p_t1_outcomes$ERQ_suppression) # np
+qqPlot(df_p_t1_outcomes$GSRS.tot) # np
+qqPlot(df_p_t1_outcomes$GSRS.Diarrhoea) # np
+qqPlot(df_p_t1_outcomes$GSRS.Indigestion) # np
+qqPlot(df_p_t1_outcomes$GSRS.Constipation) # np
+qqPlot(df_p_t1_outcomes$GSRS.abdominal.pain) # np
+qqPlot(df_p_t1_outcomes$GSRS.reflux) # np
+```
+
+```{r OUTCOMES corr matrix }
+
+# Perform Spearman correlation matrix and extract r and p-values
+outcomes_cocor  <- cocor(df_p_t1_outcomes, 'spearman')
+
+
+```
+
+```{r OUTCOMES PCA}
+
+# Standardize the data for PCA
+col_to_scale <- c('STAI.s_score', 'GAD.7_score', 'BDI_score', 'PANAS_n', 'PANAS_p', 'DASS.21.a_score', 
+                'DASS.21.s_score', 'DASS.21_tot')
+df_outcomes_scaled <- scale(df_p_t1_outcomes[, col_to_scale]) 
+
+#perform PCA 
+pca_results <- prcomp(df_outcomes_scaled, center = F, scale. = F)
+
+#summary of pca including variance explained by each variable  
+summary(pca_results)
+
+
+#get the loadings (how much each original variable contributes to each principal component)
+loadings <- pca_results$rotation
+loadings
+
+#visual summary of variance explained by each component - scree plot (elbow method)
+fviz_eig(pca_results)
+
+#visualise the biplot
+fviz_pca_biplot(pca_results, repel = TRUE)
+
+#visualize variables in the PCA space
+fviz_pca_var(pca_results, 
+             col.var = "cos2", # Color by Cos2
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), # Color gradient
+             repel = TRUE)  # Avoid text overlap
+
+#dim 1 horizontal and rightward direction, dim 2 vertical, upward direction. 
+#direction of the arrow indicates what principal component they influence most, length of arrow how strongly. 
+#The angle indicates if the corr is positive (small angle, close to zero), weak or uncorrelated (close to 90 degrees), 
+#or negative (close to 180 degrees, pointing towards opposite direction)
+
+#Visualize the individuals (observations) in the PCA space
+fviz_pca_ind(pca_results, geom.ind = "point", col.ind = "cos2",  # Color by quality of representation (cos2 assigns the color based on how well the ind is represented by the dimensions)
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+```
+
+```{r OUTCOMES PCA evaluation }
+
+#given high variance explained by PC1, alignment with psychological constructs, interpretability and small N, consider if retaining only PC1
+
+#KAISER CRITERION (Eigenvalue > 1)
+# An eigenvalue represents the amount of variance explained by a component. 
+#An eigenvalue greater than 1 means that the component explains more variance than a single original variable, making it worth keeping.
+
+#Extract eigenvalues
+eigenvalues <- pca_results$sdev^2
+eigenvalues
+
+#set criterion
+kaiser_criterion <- eigenvalues > 1
+
+#display which component has eigenvalue > 1
+print(which(kaiser_criterion)) #PC1 = 5.55, all other PCs < 1 so they explain less variance than the average original variables and can be dropped
+
+# Compute cos2 for individuals
+ind_coord <- pca_results$x  # Principal component scores
+cos2_ind <- ind_coord^2 / rowSums(ind_coord^2) %>% as.data.frame() 
+
+cos2_ind$ID <- df_p_t1$ID
+
+
+# Reshape to long format for ggplot
+cos2_ind_longer <- cos2_ind %>%
+  pivot_longer(
+    cols = -ID,
+    names_to = "Dim",
+    values_to = "Value"
+  )
+
+# Visualize with violin + boxplot + beeswarm
+ggplot(cos2_ind_longer, aes(x = Dim, y = Value, fill = Dim)) +
+  geom_violin(alpha = 0.6) +
+  geom_boxplot(width = 0.1, outlier.shape = NA, fill = "white") +
+  geom_beeswarm(alpha = 0.7, size = 1.5) +
+  theme_classic() +
+  labs(title = "Cos² Values for Individuals in PCA",
+       x = "PC1",
+       y = "Cos² Value") +
+  theme(legend.position = "none")
+
+# % of ind with cos2 > 0.4
+(sum(cos2_ind_longer$Value >= 0.5))/length(cos2_ind_longer$Value) #63% >= 0.4, 59% >= 0.5
+
+```
+
+```{r OUTCOMES extract composite scores}
+
+#based on PC1
+df_p_t1_outcomes$composite_distress <- pca_results$x[, "PC1"]
+
+```
+
+
+################################     MODIFY OUTCOME DF
+
+```{r OUTCOME DF }
+
+# Add HEI_cluster_2 and ID columns 
+df_p_t1_outcomes <- df_p_t1_outcomes %>%
+  rownames_to_column("ID") %>%
+  full_join(df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  relocate(HEI_cluster_2, .after = ID)
+
+```
+
+```{r MAIN OUTCOMES distribution within HEI clusters}
+
+# STAI-S
+qqPlot(df_p_t1_outcomes$STAI.s_score[df_p_t1_outcomes$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1_outcomes$STAI.s_score[df_p_t1_outcomes$HEI_cluster_2 == "2"])
+
+shapiro.test(df_p_t1_outcomes$STAI.s_score[df_p_t1_outcomes$HEI_cluster_2 == "1"])
+shapiro.test(df_p_t1_outcomes$STAI.s_score[df_p_t1_outcomes$HEI_cluster_2 == "2"])
+# PARAMETRIC
+
+# COMPOSITE DISTRESS 
+qqPlot(df_p_t1_outcomes$composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "1"]) # np
+qqPlot(df_p_t1_outcomes$composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "2"]) # p
+
+shapiro.test(df_p_t1_outcomes$composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "1"]) # np
+shapiro.test(df_p_t1_outcomes$composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "2"]) # p
+
+```
+
+```{r LOG TRANSFORM COMPOSITE DISTRESS }
+
+# Find the minimum value across all composite scores
+min_value <- min(df_p_t1_outcomes$composite_distress)
+
+# Add the minimum value + 1 to make all values positive
+df_p_t1_outcomes$log_composite_distress <- log1p(df_p_t1_outcomes$composite_distress - min_value)
+
+# Re-run shapiro and qqplot ---------------
+
+qqPlot(df_p_t1_outcomes$log_composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "1"])
+qqPlot(df_p_t1_outcomes$log_composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "2"])
+
+shapiro.test(df_p_t1_outcomes$log_composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "1"]) 
+shapiro.test(df_p_t1_outcomes$log_composite_distress[df_p_t1_outcomes$HEI_cluster_2 == "2"])
+# PARAMETRIC
+
+```
+
+
+################################     MODIFY FFQ
+
+```{r FFQ DFs, add HEI k }
+
+# FFQ unadj 
+FFQ_p_ni_t1 <- FFQ_p_ni_t1 %>%
+  left_join(df_p_t1 %>% dplyr::select(ID, HEI_cluster_2), by = "ID") %>%
+  relocate(`HEI_cluster_2`, .after = ID)
+
+# FFQ adj
+FFQ_p_ni_t1.adj.lm <- FFQ_p_ni_t1.adj.lm %>%
+  left_join(df_p_t1 %>% dplyr::select(ID, HEI_cluster_2), by = "ID") %>%
+  relocate(`HEI_cluster_2`, .after = ID)
+
+```
+
+
+################################     MODIFY IN24
+
+```{r IN24 ni and ni adj, add HEI k }
+
+# NOT ADJ
+#check again ID matches
+identical(df_p_t1$ID, in24_ni_t1$ID)
+
+#incorporate HEI column
+in24_ni_t1 <- in24_ni_t1 %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+
+# ADJ
+#check again ID matches
+identical(df_p_t1$ID, in24_ni_t1.adj.lm$ID)
+
+#incorporate HEI column
+in24_ni_t1.adj.lm <- in24_ni_t1.adj.lm %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+
+# NUTR
+identical(df_p_t1$ID, in24_nutr_t1.adj$ID)
+
+in24_nutr_t1.adj <- in24_nutr_t1.adj %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+
+# NG
+identical(df_p_t1$ID, in24_ng_t1.adj$ID)
+
+in24_ng_t1.adj <- in24_ng_t1.adj %>%
+ left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+
+```
+
+```{r IN24 fi, add HEI k }
+
+#check again ID matches
+identical(df_p_t1$ID, in24_fi_t1.adj$ID)
+identical(df_p_t1$ID, in24_fi_t1.adj.cat.medoids$ID)
+identical(df_p_t1$ID, in24_fi_t1.adj$ID)
+identical(df_p_t1$ID, in24_fi_t1.adj_filtered$ID)
+
+#incorporate HEI column
+# cat
+in24_fi_t1.adj.cat <- in24_fi_t1.adj.cat %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+# medoids
+in24_fi_t1.adj.cat.medoids <- in24_fi_t1.adj.cat.medoids %>%
+ left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+# con
+in24_fi_t1.adj <- in24_fi_t1.adj %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+# con filtered
+in24_fi_t1.adj_filtered <- in24_fi_t1.adj_filtered %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+
+```
+
+```{r IN24 fg con and cat }
+
+#add on both cat and con as we'll use process food cols from con df
+#check again ID matches
+identical(df_p_t1$ID, in24_fg_t1.adj$ID)
+identical(df_p_t1$ID, in24_fg_t1.adj.cat$ID)
+
+#incorporate HEI column
+#con
+in24_fg_t1.adj <- in24_fg_t1.adj %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+#cat
+in24_fg_t1.adj.cat <- in24_fg_t1.adj.cat %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+# medoids
+in24_fg_t1.adj.cat.medoids <- in24_fg_t1.adj.cat.medoids %>%
+  left_join( df_p_t1[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  dplyr::select(ID, HEI_cluster_2, everything())
+
+```
+
+
+```{r SAVE DFs }
+
+# Save the updated dataframes with HEI clusters
+#Master file
+saveRDS(df_p_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1.rds")
+#outcomes file
+saveRDS(df_p_t1_outcomes, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1_outcomes.rds")
+#FFQ files
+saveRDS(FFQ_p_ni_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.rds" )
+saveRDS(FFQ_p_ni_t1.adj.lm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.adj.lm.rds" )
+#in24 files
+#ni
+saveRDS(in24_ni_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ni_t1.rds" )
+saveRDS(in24_ni_t1.adj.lm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ni_t1.adj.lm.rds" )
+saveRDS(in24_nutr_t1.adj, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_nutr_t1.adj.rds" )
+#ng
+saveRDS(in24_ng_t1.adj, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng_t1.adj.rds" )
+#fi
+saveRDS(in24_fi_t1.adj.cat, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj.cat.rds" )
+saveRDS(in24_fi_t1.adj.cat.medoids, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj.cat.medoids.rds" )
+saveRDS(in24_fi_t1.adj, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj.rds" )
+saveRDS(in24_fi_t1.adj_filtered, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj_filtered.rds" )
+#fg
+saveRDS(in24_fg_t1.adj, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj.rds" )
+saveRDS(in24_fg_t1.adj.cat, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj.cat.rds" )
+saveRDS(in24_fg_t1.adj.cat.medoids, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj.cat.medoids.rds" )
+```
+
+
+
+#HEI and PCA 
+
+```{r}
+#EDA HEI - OUTCOMES 
+#color code biplot observations based on HEI category
+fviz_pca_biplot(pca_results,
+                geom.ind = "point",      # Show individuals as points
+                habillage = df_p_t1$HEI_cluster_2,  # Color by HEI category
+                addEllipses = TRUE,      # Add concentration ellipses around groups
+                ellipse.level = 0.95,    # Confidence level for ellipses
+                repel = TRUE)  
+```

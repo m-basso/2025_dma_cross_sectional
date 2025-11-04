@@ -1,0 +1,157 @@
+---
+title: "Gm KOs - GBM mapping"
+output: html_notebook
+---
+
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(mia)
+library(omixerRpm)
+
+```
+
+
+```{r}
+gm_ko_t1.raw <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.raw.rds") 
+
+```
+
+```{r - load gbm annotation }
+db_gbm <- loadDB(name = "GBMs.v1.0")
+
+```
+
+```{r - preprocess df }
+
+df_ko <- as.data.frame(gm_ko_t1.raw) %>%
+  rownames_to_column("KO")
+
+```
+
+
+```{r run matching function wit cov 0 to check cov values }
+
+rpm_0 <- rpm(
+  x = df_ko,
+  minimum.coverage = -1, # - 1 is default: look through all coverage values, check distribution, and find a natural point that could be the best coverage threshold based on my data. when doing it, cov threshold = 0.6 --> as quite strict, I am visualizing coverage across all modules to determine if another threshold could work best 
+  module.db = db_gbm,
+  annotation = 1, # as default, KO KEGG 
+  score.estimator = "sum", 
+  normalize.by.length = F, # normalization by default off, but just in case
+  distribute = F # as default, do not distr KOs belonging to multiple modules between modules by /N
+)
+
+length(rpm_0@coverage > 0.3)
+
+```
+
+```{r - extract and explore coverage }
+
+# extract df
+rpm_cov_0 <- rpm_0@coverage
+
+# pivot
+df_p <- rpm_cov_0 %>%
+  pivot_longer(
+    cols = everything(), # pivot all cols
+    names_to = "ID", # new col to call ID
+    values_to = "coverage" # new col where to store values
+  )
+
+# plot 56 modules x 46 subj coverage values
+ggplot(data = df_p, aes(x = coverage)) +
+  geom_histogram()
+
+ggplot(data = df_p, aes(x = coverage)) +
+  geom_density()
+
+# lowest point = 0.2 - 0.3
+# minimal peak  of KO coverage at 0.5
+# peak at 0.9 - 1 
+# set threshold after lowest point to detect as present modules where at least > 30% of KOs co-occur 
+# consistent with Nicola study 
+
+```
+
+```{r - rerun rpm with 0.3 coverage threshold }
+
+rpm_output <- rpm(
+  x = df_ko,
+  minimum.coverage = 0.3,
+  module.db = db_gbm,
+  annotation = 1,  
+  score.estimator = "sum", 
+  normalize.by.length = F, 
+  distribute = F 
+)
+
+rpm_output 
+
+rpm_output@coverage
+
+```
+
+```{r - build row abundance table with annotation }
+
+# extract cov 
+rpm_cov <- rpm_output@coverage
+
+# extract abundance 
+rpm_abundance <- rpm_output@abundance
+
+# inspect annot and db
+str(rpm_output@annotation)
+str(rpm_output@db)
+# extract and transpose
+rpm_ann <- t(rpm_output@annotation) %>% as.vector()
+
+# abundance table rownames
+rownames(rpm_abundance) <- rpm_ann
+# check order is preserved
+all(rownames(rpm_abundance) == rpm_ann)
+# attach mod name
+rownames(rpm_abundance) <- paste0(rownames(rpm_abundance), " - ", db_gbm@module.names[rpm_ann, ])
+
+```
+
+```{r - filter by mean rel abundance }
+
+# create df for rel ab
+rpm_rel_ab <- apply(rpm_abundance, 2, function(x) x/sum(x))
+# check 
+colSums(rpm_rel_ab)
+# mean RA of each feature across samples
+mean_ra <- rowMeans(rpm_rel_ab)
+# threshold
+mean_ra_low <- mean_ra < 0.0001
+
+# Count how many features are below 0.01
+sum(mean_ra_low == T)
+
+# identify 
+mean_ra_low_001 <- rownames(rpm_abundance)[mean_ra_low]
+mean_ra_low_001 
+
+```
+
+```{r - FILTER }
+
+# filter abundance table
+gm_gbm_t1.f <- rpm_abundance %>%
+  filter(!(rownames(rpm_abundance) %in% mean_ra_low_001 ))
+
+```
+
+```{r}
+
+saveRDS(gm_gbm_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_gbm_t1.f.rds")
+
+```
+
+
+
+
+
+

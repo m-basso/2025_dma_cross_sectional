@@ -1,0 +1,335 @@
+---
+title: "in24 MFA"
+output: html_notebook
+---
+
+```{r - load libraries }
+library(dplyr)
+library(FactoMineR)
+library(ggplot2)
+library(tidyr)
+library(factoextra)
+library(ggbeeswarm)
+library(corrplot)
+library(openxlsx)
+library(ggsignif)
+library(kableExtra)
+
+```
+
+```{r - load dependencies }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/basic_stats_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/EDA_utils.R")
+```
+
+```{r - upload dataset }
+
+in24_ng.f_t1_cl <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_t1_cl.rds")
+in24_ng.f_scaled_cl <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_scaled_cl.rds")
+in24_f_medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_f_medoids.rds")
+df_p_t1_outcomes <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1_outcomes.rds")
+
+```
+
+# work flow - MFA theory 
+# 1 scaling - why? To ensure all variables contribute equally within their blocks, regardless of their original scales or units # MFA type "c" if you don't pre-scale manually
+# 2 encode cat var if any
+# 3 block weighting - method: by block size. why? To balance contributions and prevent larger blocks from dominating the analysis
+# 4 run MFA - PCA for con, MCA for cat. 
+# 5 components validation with resampling techniques - why? to check robustness of model
+# 5 visualization
+# 5 interpret results - a) factors and factor scores [reduced dimensions] b) loadings [contribution of each variable to each factor] c) block contribution [loading of each block overall per each factor] d) cos2 of individuals for quality assessment
+
+
+```{r - prepare data - NG }
+
+# remove non-var & f var
+rownames(in24_ng.f_t1_cl) <- in24_ng.f_t1_cl$ID
+in24_ng <- in24_ng.f_t1_cl[ , -c(1:2, 10: length(in24_ng.f_t1_cl))]
+
+```
+
+```{r - prepare data - FI cat medoids }
+
+rownames(in24_f_medoids) <- in24_f_medoids$ID
+# select cols
+f_cols_ord <- colnames(in24_f_medoids)[c(5:14, 16:18)]
+# subset df
+in24_f <- in24_f_medoids[, f_cols_ord]  %>% as.data.frame()
+
+
+```
+
+```{r - prepare data - pl }
+
+# select cols
+
+upf <- in24_ng.f_t1_cl[, "Processed/UPF_Kcal"] %>% as.data.frame()
+colnames(upf)[1] <- "UPF consumption"
+rownames(upf) <- rownames(in24_ng.f_t1_cl) 
+
+```
+
+```{r make sure var is not 0 for any col}
+
+in24_ng <- remove_zero_variance(in24_ng)
+in24_f <- remove_zero_variance(in24_f)
+in24_pl <- remove_zero_variance(upf)
+
+```
+
+```{r - merge blocks - NG, PROC, FI, FG}
+
+in24_MFA_df <- cbind(
+  in24_ng,
+  in24_f,
+  upf
+)
+
+```
+
+```{r - define blocks}
+
+in24_MFA_blocks <- c(
+  ncol(in24_ng),
+  ncol(in24_f),
+  ncol(upf)
+  )
+
+
+# verify
+sum(in24_MFA_blocks) == ncol(in24_MFA_df)
+
+```
+
+```{r - apply MFA }
+
+in24_MFA_results <- MFA(
+  in24_MFA_df,
+  group = in24_MFA_blocks, # N of var x each block
+  name.group = c("Nutrient Groups", "Food items", "UPF level"),
+  ncp = ncol(in24_MFA_df)  # Retain all dimensions (set to the number of columns)
+)
+
+```
+
+```{r - assess MFA}
+
+# https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/112-pca-principal-component-analysis-essentials/
+
+# Eigenvalues and variance explained # kaiser criterion
+in24_MFA_results$eig
+
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/scree_plot_MFA.png",  width = 1800, height = 1200, res = 300)
+fviz_eig(in24_MFA_results)
+
+# Block contributions
+in24_MFA_results$group$contrib[, 1:4]
+
+# Variable contributions
+# Check contributions for first 6 Dim
+var_contr <- in24_MFA_results$quanti.var$contrib[, 1:4] # [, N Dim] with other dimensions if needed
+
+# plot var$contrib
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/var_contr_MFA.png",  width = 2000, height = 2300, res = 300)
+corrplot(in24_MFA_results$quanti.var$contrib[, 1:4], is.corr=FALSE, cl.offset = 0.25, cl.ratio = 0.50, cl.align.text = "l")
+
+# Cos2 values for variableS
+var_cos2 <- in24_MFA_results$quanti.var$cos2[, 1:4]
+
+# plot var$cos2
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/var_cos2_MFA.png",  width = 2000, height = 2300, res = 300)
+corrplot(in24_MFA_results$quanti.var$cos2[, 1:4], is.corr=FALSE, cl.offset = 0.25, cl.ratio = 0.50, cl.align.text = "l")
+
+# cos2 values for ind
+
+# df
+cos2_ind <- in24_MFA_results$ind$cos2[, 1:4] %>% as.data.frame
+cos2_ind <- rownames_to_column(cos2_ind, "ID")
+
+cos2_ind_longer <- cos2_ind %>%
+  pivot_longer(
+    cols = -ID,
+    names_to = "Dim",
+    values_to = "Value"
+  )
+
+# inspect
+sum(0.2 < cos2_ind$Dim.1 | cos2_ind$Dim.1 > 0.7) #16
+sum(0.2 < cos2_ind$Dim.2 | cos2_ind$Dim.2 > 0.7) #11
+sum(0.2 < cos2_ind$Dim.3 | cos2_ind$Dim.3 > 0.7) #9
+sum(0.2 < cos2_ind$Dim.4 | cos2_ind$Dim.4 > 0.7) #6
+
+
+# visualize
+ind_cos2_p <- ggplot(cos2_ind_longer, aes(x = Dim, y = Value, fill = Dim)) +
+  geom_violin(alpha = 0.6) +
+  geom_boxplot(width = 0.1, outlier.shape = NA, fill = "white") +
+  geom_beeswarm(alpha = 0.7, size = 1.5) +
+  labs(x = "Dimension") +
+  theme_classic() +
+  theme(
+    legend.title = element_text(size = 16),       # legend title font size
+    legend.text = element_text(size = 14),
+    axis.title.x = element_text(size = 16),
+    axis.text.x  = element_text(size = 12),
+    axis.title.y = element_text(size = 16),
+    axis.text.y  = element_text(size = 12)
+    )
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/ind_cos2_MFA.png", bg = "white", plot = ind_cos2_p, width = 15, height = 11, dpi = 300)
+
+
+# individual factor map
+plot.MFA(in24_MFA_results, choix = "ind", lab.var = F, lab.ind = T)
+
+# corr circle
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/corr_circle_MFA.png",  width = 2000, height = 2500, res = 300)
+plot.MFA(in24_MFA_results, choix = "var", cex = 0.7, select = "contrib 20")
+plot.MFA(in24_MFA_results, choix = "var", axes = c(1, 3), cex = 0.7, select = "contrib 20")  # Dim 1 vs. Dim 3
+plot.MFA(in24_MFA_results, choix = "var", axes = c(2, 3), cex = 0.7, select = "contrib 20")   # Dim 2 vs. Dim 3
+
+
+# block representation
+plot.MFA(in24_MFA_results, choix = "group")
+
+```
+
+```{r - save tables }
+
+# VAR CONTR
+# excel
+write.xlsx(var_contr, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/var_contr_MFA.xlsx", rowNames = T)
+
+# VAR COS2
+# excel
+write.xlsx(var_cos2, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/var_cos2_MFA.xlsx", rowNames = T)
+
+```
+
+
+
+```{r - assess MFA Dim - loadings}
+
+# Variable loadings
+in24_MFA_loadings <- in24_MFA_results$quanti.var$coord[, 1:4] %>% as.data.frame()
+
+# visualize 
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.1_MFA.png",  width = 2000, height = 2500, res = 300)
+visualize_loadings_con(in24_MFA_loadings, "Dim.1", title = "Loadings for Dim 1")
+dev.off()
+
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.2_MFA.png",  width = 2000, height = 2500, res = 300)
+visualize_loadings_con(in24_MFA_loadings, "Dim.2", title = "Loadings for Dim 2")
+dev.off()
+
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.3_MFA.png",  width = 2000, height = 2500, res = 300)
+visualize_loadings_con(in24_MFA_loadings, "Dim.3", title = "Loadings for Dim 3")
+dev.off()
+
+png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.4_MFA.png",  width = 2000, height = 2500, res = 300)
+visualize_loadings_con(in24_MFA_loadings, "Dim.4", title = "Loadings for Dim 4")
+dev.off()
+
+```
+
+```{r - extract and assess individual scores }
+
+# scores
+in24_dp_scores <- in24_MFA_results$ind$coord[, 1:4] %>% as.data.frame()
+
+# add ID and HEI col
+in24_dp_scores <- rownames_to_column(in24_dp_scores, "ID")
+in24_dp_scores <- left_join(in24_dp_scores, df_p_t1_outcomes[, c("ID", "HEI_cluster_2")], by = "ID") %>%
+  relocate(c(ID, HEI_cluster_2), .before = everything())
+
+# check distribution
+distr_f(in24_dp_scores, colnames(in24_dp_scores[3:6]))
+qqplot_f(in24_dp_scores[, 3:6])
+apply(in24_dp_scores[, 3:6], 2, function(x) shapiro.test(x))
+
+# check differences across HEI_clusters
+in24_dp_ds_k <- calculate_ds_stat(in24_dp_scores, group_var = HEI_cluster_2, cols_med = colnames(in24_dp_scores[3:6]))
+in24_dp_ds_k <- fix_column_names(in24_dp_ds_k, "HEI 1", "HEI 2" )
+
+# stat significance
+in24_dp_ds_k$p <- apply_t_w_test_across(in24_dp_scores, cols_w = colnames(in24_dp_scores[3:6]), IV = HEI_cluster_2)
+in24_dp_ds_k$q <- p.adjust(in24_dp_ds_k$p, method = "BH")
+in24_dp_ds_k[, 3:4] <- apply(in24_dp_ds_k[, 3:4], 2, function(x) round(x, 3))
+
+```
+
+```{r - edit and save }
+
+# edit
+in24_dp_ds_k$Dimension <- gsub("_median_iqr", "", rownames(in24_dp_ds_k)) %>%
+  gsub("\\.", " ", ., fixed = FALSE) %>%
+  gsub("\\_", " ", ., fixed = FALSE)
+
+in24_dp_ds_k <- in24_dp_ds_k %>%
+  relocate(Dimension, .before = `HEI 1`)
+
+rownames(in24_dp_ds_k) <- NULL
+
+# save
+write.xlsx(in24_dp_ds_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/test_in24_dp_HEI.xlsx", rowNames = TRUE)
+
+
+```
+
+
+```{r - visualize }
+
+# add cos2 to DPs df
+colnames(cos2_ind)[2:ncol(cos2_ind)] <- paste0(colnames((cos2_ind)[2:ncol(cos2_ind)]), "_cos2")
+in24_dp_t1 <- left_join(in24_dp_scores, cos2_ind, by = "ID")
+
+# visualize
+ggplot(in24_dp_t1, aes(x = HEI_cluster_2, y = Dim.1, fill = HEI_cluster_2)) +
+  geom_violin() +  
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  geom_jitter(aes(color = Dim.1_cos2), alpha = 0.9, width = 0.05, size = 2) +
+  labs(title = "Boxplot Dim.1 by HEI groups", x = "HEI group", y = "Dim.1") +
+  geom_signif(comparison = list(c("1", "2")), map_signif_level = TRUE, test = "wilcox.test") +
+  scale_color_gradient(low = "white", high = "black") +
+  theme_minimal()
+
+
+```
+
+```{r - save datasets}
+
+saveRDS(in24_dp_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_dp_t1.rds" )
+
+```
+
+
+# preprocessing 
+
+```{r -data preprocessing - dp }
+
+# define cols
+cols_dp <- colnames(in24_dp_t1)[3:6]
+
+# check dist
+P3 <- distr_f(in24_dp_t1, cols_dp)
+
+# check skewness
+apply(in24_dp_t1[, cols_dp], 2, skewness) # all good, all scaled
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_dp_t1.distr.png", bg = "white", plot = P3, width = 10, height = 6, dpi = 300)
+
+
+```
+
+
+```{r - merge DPs to in24 df }
+
+# merge with in24 - retain only interpretable Dim and with at least 20% of cos2 values in between 0.2 and 0.7 --> Dim 1 & 2
+in24_merged_VIF <- left_join(in24_ng.f_scaled_cl, in24_dp_t1[, 1:4], by = c("ID", "HEI_cluster_2"))
+
+# save 
+saveRDS(in24_merged_VIF, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+
+```

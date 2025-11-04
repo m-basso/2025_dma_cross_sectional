@@ -1,0 +1,304 @@
+---
+title: "Gut Microbiome data cleaning"
+output: html_notebook
+---
+
+```{r }
+library(readr)
+library(dplyr)
+
+```
+
+
+# T1, L5 - Genera
+
+```{r - upload files }
+# df
+in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+# taxa, genus 
+gm_taxa_gen_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL5.txt")
+# taxa, species 
+gm_taxa_spec_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL6.txt")
+# taxa, phylum 
+gm_taxa_pyl_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL1.txt")
+# taxa, family
+gm_taxa_fam_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL4.txt")
+# taxa, strain
+gm_taxa_str_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL7.txt")
+# KOs
+gm_ko_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_Funct/KGML0.txt")
+
+```
+
+
+# T1, L6 - species
+
+```{r preprocess colnames - taxa l6 }
+
+# convert into df
+gm_taxa_spec_t1 <- as.data.frame(gm_taxa_spec_t1)
+# set rownames
+rownames(gm_taxa_spec_t1) <- gm_taxa_spec_t1[[1]]
+gm_taxa_spec_t1 <- gm_taxa_spec_t1[, -1]
+
+# colnames
+colnames(gm_taxa_spec_t1)
+
+# align names with IDs
+colnames(gm_taxa_spec_t1) <- gsub(".*?(\\d+).*", "p\\1", colnames(gm_taxa_spec_t1)) 
+
+# remove leading zeros
+colnames(gm_taxa_spec_t1) <- gsub("p0*(\\d+)", "p\\1", colnames(gm_taxa_spec_t1))
+colnames(gm_taxa_spec_t1)
+length(intersect(colnames(gm_taxa_spec_t1), in24_merged_VIF$ID))
+
+# Keep only columns that exist in df
+gm_taxa_spec_t1 <- gm_taxa_spec_t1[, intersect(colnames(gm_taxa_spec_t1), in24_merged_VIF$ID)]
+
+# check how many IDs match
+sum(colnames(gm_taxa_spec_t1) %in% in24_merged_VIF$ID)
+# check if element match regardless order
+setequal(colnames(gm_taxa_spec_t1), in24_merged_VIF$ID)
+# reorder df to match the count matrix's column order
+gm_taxa_spec_t1 <- gm_taxa_spec_t1[, in24_merged_VIF$ID]
+# check
+all(in24_merged_VIF$ID == colnames(gm_taxa_spec_t1))
+
+# check tot count per pp
+colSums(gm_taxa_spec_t1)
+
+
+```
+
+```{r - features with tot reads < 0.01% - L6 }
+
+# create df for rel ab
+l6_rel_ab <- apply(gm_taxa_spec_t1, 2, function(x) x/sum(x))
+# check 
+colSums(l6_rel_ab)
+# mean RA of each feature across samples
+mean_ra <- rowMeans(l6_rel_ab)
+# threshold
+mean_ra_low <- mean_ra < 0.0001
+
+# Count how many features are below 0.01
+sum(mean_ra_low == T)
+
+# identify 
+mean_ra_low_001_l6 <- rownames(gm_taxa_spec_t1)[mean_ra_low]
+
+```
+
+```{r - filter df - L6 }
+
+gm_taxa_spec_t1.f <- gm_taxa_spec_t1 %>% 
+  filter(!(rownames(gm_taxa_spec_t1) %in% mean_ra_low_001_l6))
+
+```
+
+```{r - rownames preprocessing - L6 }
+
+# Extract the row names
+row_names <- rownames(gm_taxa_spec_t1.f)
+
+# Initialize a counter for unique suffixes
+counter <- 1
+
+# Loop through each row name
+for (i in seq_along(row_names)) {
+  # While ensures that each '?' is replaced one by one
+  while (grepl("\\?", row_names[i])) {
+    # Replace only the first occurrence of '?' per each string so to have unique labelling 
+    row_names[i] <- sub("\\?", paste0("unclassified_", counter), row_names[i])
+    counter <- counter + 1
+  }
+}
+
+# Assign the updated row names back
+rownames(gm_taxa_spec_t1.f) <- row_names
+
+
+# Extract the row names
+row_names <- rownames(gm_taxa_spec_t1)
+
+# Initialize a counter for unique suffixes
+counter <- 1
+
+# Loop through each row name
+for (i in seq_along(row_names)) {
+  # While ensures that each '?' is replaced one by one
+  while (grepl("\\?", row_names[i])) {
+    # Replace only the first occurrence of '?' per each string so to have unique labelling 
+    row_names[i] <- sub("\\?", paste0("unclassified_", counter), row_names[i])
+    counter <- counter + 1
+  }
+}
+
+# Assign the updated row names back
+rownames(gm_taxa_spec_t1) <- row_names
+
+```
+
+```{r save df - taxa specie L6 }
+
+saveRDS(gm_taxa_spec_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
+saveRDS(gm_taxa_spec_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds")
+
+```
+
+
+# T1, L1 - phylum
+
+```{r preprocess colnames - taxa phylum - L1 }
+
+# convert into df
+gm_taxa_pyl_t1 <- as.data.frame(gm_taxa_pyl_t1)
+# set rownames
+rownames(gm_taxa_pyl_t1) <- gm_taxa_pyl_t1[[1]]
+gm_taxa_pyl_t1 <- gm_taxa_pyl_t1[, -1]
+
+# colnames
+colnames(gm_taxa_pyl_t1)
+
+# align names with IDs
+colnames(gm_taxa_pyl_t1) <- gsub(".*?(\\d+).*", "p\\1", colnames(gm_taxa_pyl_t1)) 
+
+# remove leading zeros
+colnames(gm_taxa_pyl_t1) <- gsub("p0*(\\d+)", "p\\1", colnames(gm_taxa_pyl_t1))
+colnames(gm_taxa_pyl_t1)
+length(intersect(colnames(gm_taxa_pyl_t1), in24_merged_VIF$ID))
+
+# Keep only columns that exist in df
+gm_taxa_pyl_t1 <- gm_taxa_pyl_t1[, intersect(colnames(gm_taxa_pyl_t1), in24_merged_VIF$ID)]
+
+# check how many IDs match
+sum(colnames(gm_taxa_pyl_t1) %in% in24_merged_VIF$ID)
+# check if element match regardless order
+setequal(colnames(gm_taxa_pyl_t1), in24_merged_VIF$ID)
+# reorder df to match the count matrix's column order
+gm_taxa_pyl_t1 <- gm_taxa_pyl_t1[, in24_merged_VIF$ID]
+# check
+all(in24_merged_VIF$ID == colnames(gm_taxa_pyl_t1))
+
+# check tot count per pp
+colSums(gm_taxa_pyl_t1)
+
+```
+
+```{r - features with tot reads < 0.01% - L1 }
+
+# create df for rel ab
+l1_rel_ab <- apply(gm_taxa_pyl_t1, 2, function(x) x/sum(x))
+# check 
+colSums(l1_rel_ab)
+# mean RA of each feature across samples
+mean_ra <- rowMeans(l1_rel_ab)
+# threshold
+mean_ra_low <- mean_ra < 0.0001
+
+# Count how many features are below 0.01
+sum(mean_ra_low == T)
+
+# identify 
+mean_ra_low_001_l1 <- rownames(gm_taxa_pyl_t1)[mean_ra_low]
+mean_ra_low_001_l1
+
+```
+
+```{r - filter df - L1 }
+
+gm_taxa_pyl_t1.f <- gm_taxa_pyl_t1 %>% 
+  filter(!(rownames(gm_taxa_pyl_t1) %in% mean_ra_low_001_l1))
+
+```
+
+```{r save df - taxa phylum - L1 }
+
+saveRDS(gm_taxa_pyl_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+ 
+```
+
+
+# T1, KOs
+
+```{r preprocess colnames }
+
+# convert into df
+gm_ko_t1 <- as.data.frame(gm_ko_t1)
+# set rownames
+rownames(gm_ko_t1) <- gm_ko_t1[[1]]
+gm_ko_t1 <- gm_ko_t1[, -1]
+
+# colnames
+colnames(gm_ko_t1)
+
+# align names with IDs
+colnames(gm_ko_t1) <- gsub(".*?(\\d+).*", "p\\1", colnames(gm_ko_t1)) # ignore all until you find first num(\\d+) and then ignore again. replace all with p + that num
+
+# remove leading zeros
+colnames(gm_ko_t1) <- gsub("p0*(\\d+)", "p\\1", colnames(gm_ko_t1))
+colnames(gm_ko_t1)
+length(intersect(colnames(gm_ko_t1), in24_merged_VIF$ID))
+
+# Keep only columns that exist in df
+gm_ko_t1 <- gm_ko_t1[, intersect(colnames(gm_ko_t1), in24_merged_VIF$ID)]
+
+# check how many IDs match
+sum(colnames(gm_ko_t1) %in% in24_merged_VIF$ID)
+# check if element match regardless order
+setequal(colnames(gm_ko_t1), in24_merged_VIF$ID)
+# reorder df to match the count matrix's column order
+gm_ko_t1 <- gm_ko_t1[, in24_merged_VIF$ID]
+# check
+all(in24_merged_VIF$ID == colnames(gm_ko_t1))
+
+# check tot count per pp
+colSums(gm_ko_t1)
+
+# remove -1 row
+gm_ko_t1 <- gm_ko_t1[-1, ]
+
+colSums(gm_ko_t1)
+
+gm_ko_t1.raw <- gm_ko_t1
+
+```
+
+```{r - features with tot reads < 0.01% }
+
+# create df for rel ab
+ko_rel_ab <- apply(gm_ko_t1.raw, 2, function(x) x/sum(x))
+# check 
+colSums(ko_rel_ab)
+# mean RA of each feature across samples
+mean_ra <- rowMeans(ko_rel_ab)
+# threshold
+mean_ra_low <- mean_ra < 0.0001
+
+# Count how many features are below 0.01
+sum(mean_ra_low == T)
+
+# identify 
+mean_ra_low_001_ko <- rownames(gm_ko_t1.raw)[mean_ra_low]
+mean_ra_low_001_ko
+
+```
+
+```{r - filter df - L1 }
+
+gm_ko_t1.f <- gm_ko_t1.raw %>% 
+  filter(!(rownames(gm_ko_t1.raw) %in% mean_ra_low_001_ko))
+
+```
+
+
+```{r save df - KOs - raw }
+
+saveRDS(gm_ko_t1.raw, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.raw.rds")
+saveRDS(gm_ko_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.f.rds")
+ 
+```
+
+
+
+

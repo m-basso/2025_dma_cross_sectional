@@ -1,0 +1,81 @@
+---
+title: "Gm trees and names cleaning"
+output: html_notebook
+---
+
+```{r - load libraries }
+library(dplyr)
+library(tidyr)
+library(ape)
+
+```
+
+```{r - load dependencies }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Gm_utils.R")
+
+```
+
+```{r - upload df }
+# gm, l6
+gm_taxa_spec_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
+gm_taxa_spec_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds")
+# gm, l1
+gm_taxa_pyl_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+
+```
+
+# STEPS
+# 1 you create a factorized df/matrix with taxonomic levels
+# you one-hot encode (where you get one col per each factor level and 1/0 values)
+# you compute dist() on the 0/1 matrix where 0 means “identical patterns” and higher values mean more differences in taxonomy levels
+# you perform hclust on computed distances
+# convert into phylo format
+
+
+```{r - L6 tree }
+
+# call function for filtered df
+phylo_list_l6 <- create_phylotree(gm_taxa_spec_t1.f, l_level = "l6", ranks = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Specie"))
+# exctrac obj 
+gm_taxa_spec_t1.f <- phylo_list_l6$data
+phylo_tree_l6 <- phylo_list_l6$phylo_tree
+
+# call function for unfiltered df
+phylo_list_l6_nf <- create_phylotree(gm_taxa_spec_t1, l_level = "l6", ranks = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Specie"))
+# exctrac obj 
+gm_taxa_spec_t1 <- phylo_list_l6_nf$data
+
+```
+
+```{r save df - taxa specie L6 }
+
+# l6 df
+saveRDS(gm_taxa_spec_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
+saveRDS(gm_taxa_spec_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds")
+saveRDS(phylo_tree_l6, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l6.rds")
+
+```
+
+
+```{r - L1 tree }
+
+# call function
+phylo_list_l1 <- create_phylotree(gm_taxa_pyl_t1.f, l_level = "l1", ranks = c("Kingdom", "Phylum"))
+# exctrac obj 
+gm_taxa_pyl_t1.f <- phylo_list_l1$data
+phylo_tree_l1 <- phylo_list_l1$phylo_tree
+
+```
+
+```{r save df - taxa specie L1 }
+
+# l6 df
+saveRDS(gm_taxa_pyl_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+# phylo table
+saveRDS(phylo_tree_l1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l1.rds")
+
+```
+
+
+
+

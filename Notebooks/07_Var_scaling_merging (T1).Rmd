@@ -1,0 +1,431 @@
+---
+title: "Preprocessing before analysis"
+output: html_notebook
+---
+```{r - load libraries}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggbeeswarm)
+library(e1071)
+library(car) # for vif
+
+```
+
+```{r - upload dependencies }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/EDA_utils.R")
+
+```
+
+
+```{r - upload datasets }
+# IV
+in24_nutr_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_nutr_t1.adj.rds")
+in24_ng_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng_t1.adj.rds")
+in24_fi_t1.adj_filtered <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj_filtered.rds")
+in24_fg_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj.rds")
+in24_dp_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_dp_t1.rds")
+FFQ_p_ni_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.adj.lm.rds")
+in24_fi_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj.cat.medoids.rds")
+in24_fg_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj.cat.medoids.rds")
+# DV
+df_p_t1_outcomes <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1_outcomes.rds")
+df_p_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1.rds")
+
+```
+
+
+```{r - data checks }
+
+# check df class
+class(in24_nutr_t1.adj)
+class(in24_ng_t1.adj)
+class(in24_fg_t1.adj)
+class(in24_fi_t1.adj_filtered)
+
+# transform to df for compatibility with skewness fun
+in24_fg_t1.adj <- as.data.frame(in24_fg_t1.adj)
+in24_fi_t1.adj_filtered <- as.data.frame(in24_fi_t1.adj_filtered)
+
+# check ID alignment
+identical(in24_nutr_t1.adj$ID, in24_ng_t1.adj$ID)
+identical(in24_ng_t1.adj$ID, in24_fi_t1.adj_filtered$ID) 
+identical(in24_ng_t1.adj$ID, in24_fg_t1.adj$ID)
+identical(in24_ng_t1.adj$ID, df_p_t1_outcomes$ID)
+
+# check for missing values
+sum(is.na(in24_ng_t1.adj) == T)
+sum(is.na(in24_fi_t1.adj_filtered) == T)
+sum(is.na(in24_fg_t1.adj) == T)
+sum(is.na(df_p_t1_outcomes) == T)
+
+```
+
+```{r - data preprocessing - ng }
+
+# define col
+cols_ng <- colnames(in24_ng_t1.adj)[3:20]
+
+# check distribution
+distr_f(in24_ng_t1.adj, cols_ng)
+
+# check for skewness and log transform
+in24_ng_t1.adj <- log1p_skewed_transform(in24_ng_t1.adj, 3, 20)
+
+# scale
+in24_ng_t1.adj_scaled <- in24_ng_t1.adj %>%
+  mutate(across(all_of(cols_ng), ~ scale(.x)[,1]))
+
+# check distr again
+P <- distr_f(in24_ng_t1.adj_scaled, cols_ng)
+apply(in24_ng_t1.adj_scaled[, cols_ng], 2, skewness)
+
+# check var to ensure proper scaling
+apply(in24_ng_t1.adj_scaled[, cols_ng], 2, var)
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_ng_t1.adj_scaled.png", bg = "white", plot = P, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r - data preprocessing - fg }
+
+# define cols 
+cols_fg <- colnames(in24_fg_t1.adj)[3:8]
+
+# check distr
+distr_f(in24_fg_t1.adj, cols_fg)
+
+# check for skewness and log transform
+in24_fg_t1.adj <- log1p_skewed_transform(in24_fg_t1.adj, 3, 8)
+
+# scale 
+in24_fg_t1.adj_scaled <- in24_fg_t1.adj %>%
+  mutate(across(all_of(cols_fg), ~ scale(.x)[,1]))
+
+
+# check distr and skewness now
+P2 <- distr_f(in24_fg_t1.adj_scaled, cols_fg)
+apply(in24_fg_t1.adj_scaled[, cols_fg], 2, skewness)
+
+# check var to ensure proper scaling
+apply(in24_fg_t1.adj_scaled[, cols_fg], 2, var)
+
+# PROCESSING LEVEL only
+cols_pr <- colnames(in24_fg_t1.adj)[3:4]
+pr_adj_dist <- distr_f(in24_fg_t1.adj, cols_pr)
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_proc_t1.adj.png", bg = "white", plot = pr_adj_dist, width = 10, height = 6, dpi = 300)
+pr_adj_scaled_distr <- distr_f(in24_fg_t1.adj_scaled, cols_pr)
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_proc_t1.adj.scaled.png", bg = "white", plot = pr_adj_scaled_distr, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r - data preprocessing - fi }
+
+# define cols 
+cols_fi <- colnames(in24_fi_t1.adj_filtered)[3:15] 
+
+# check distr
+distr_f(in24_fi_t1.adj_filtered, cols_fi)
+
+# check for skewness and log transform
+in24_fi_t1.adj_filtered <- log1p_skewed_transform(in24_fi_t1.adj_filtered, 3, 15)
+
+# scale 
+in24_fi_t1.adj_scaled <- in24_fi_t1.adj_filtered %>%
+  mutate(across(all_of(cols_fi), ~ scale(.x)[,1]))
+
+# check distr and skewness now
+distr_f(in24_fi_t1.adj_scaled, cols_fi)
+apply(in24_fi_t1.adj_scaled[, cols_fi], 2, skewness) # keep an eye on tomatoes
+
+# check var to ensure proper scaling
+apply(in24_fi_t1.adj_scaled[, cols_fi], 2, var)
+
+
+```
+
+# food items and food groups ( - processing level) have tricky distributions that need to be handled singularly so will only be used to compute MFA factors but not included in any further analysis at this point. They can be used for post hoc analysis depending on results from processing and ng. Nutrients will not be used as too granular and I alrady have too many data, and few subj. 
+
+
+# checks on FFQ_adj values
+
+```{r - data preprocessing - FFQ adj }
+
+# define col
+cols_ffq <- colnames(FFQ_p_ni_t1.adj)[6:12]
+
+# check distribution
+distr_f(FFQ_p_ni_t1.adj, cols_ffq)
+
+# check for skewness and log transform
+FFQ_p_ni_t1.adj <- log1p_skewed_transform(FFQ_p_ni_t1.adj, 6, 12)
+
+# scale
+FFQ_p_ni_t1.adj_scaled <- FFQ_p_ni_t1.adj %>%
+  mutate(across(all_of(cols_ffq), ~ scale(.x)[,1]))
+
+
+# check distr again
+distr_f(FFQ_p_ni_t1.adj_scaled, cols_ffq)
+apply(FFQ_p_ni_t1.adj_scaled[, cols_ffq], 2, skewness) # keep an eye on NA/K
+
+# check var to ensure proper scaling
+apply(FFQ_p_ni_t1.adj_scaled[, cols_ffq], 2, var)
+
+# check glycemic index
+distr_f(FFQ_p_ni_t1.adj_scaled, colnames(FFQ_p_ni_t1.adj_scaled)[4])
+skewness(FFQ_p_ni_t1.adj_scaled$Glycemic_Load)
+FFQ_p_ni_t1.adj_scaled$Glycemic_Load <- as.numeric(scale(FFQ_p_ni_t1.adj_scaled$Glycemic_Load))
+
+
+
+```
+
+
+```{r - data preprocessing - outcomes }
+
+# define cols
+cols_outcome <- colnames(df_p_t1_outcomes)[c(3,22)]
+
+# check distr
+distr_f(df_p_t1_outcomes, cols_outcome)
+
+# check skewness
+apply(df_p_t1_outcomes[, cols_outcome], 2, skewness)
+
+# subset the df
+df_p_t1_main_outcomes <- df_p_t1_outcomes %>% 
+  select(ID, HEI_cluster_2, log_composite_distress, STAI.s_score)
+
+# mutate - scale stai and add cat
+df_p_t1_main_outcomes <- df_p_t1_main_outcomes %>%
+  mutate(
+    STAI.s_score_scaled = as.numeric(scale(STAI.s_score)),
+    STAI_s_cat.binary = as.factor(if_else(STAI.s_score >= 38, "mod_high", "no_low")),
+    STAI_s_cat = as.factor(case_when(
+      STAI.s_score >= 45 ~ "high",      
+      STAI.s_score >= 38 ~ "mod",  
+      TRUE ~ "low"                      
+    ))
+  )
+
+# order
+lapply(df_p_t1_main_outcomes[, 6:7], levels)
+
+df_p_t1_main_outcomes$STAI_s_cat.binary <- factor(df_p_t1_main_outcomes$STAI_s_cat.binary, levels = rev(levels(df_p_t1_main_outcomes$STAI_s_cat.binary)))
+df_p_t1_main_outcomes$STAI_s_cat <- factor(df_p_t1_main_outcomes$STAI_s_cat, levels = c("low", "mod", "high"), ordered = TRUE)
+
+lapply(df_p_t1_main_outcomes[, 6:7], levels)
+
+```
+
+# merged df with ng, processing level, outcomes, HEI groups
+
+```{r merge ST Diet Vars and DVs }
+
+# Merge IV and DV 
+identical(in24_ng_t1.adj_scaled$ID, df_p_t1$ID)
+identical(in24_fg_t1.adj_scaled$ID, df_p_t1$ID)
+
+# scaled
+in24_ng.f_t1_scaled <- left_join(in24_ng_t1.adj_scaled, in24_fi_t1.adj_scaled, by = c("ID", "HEI_cluster_2")) %>%
+  left_join(in24_fg_t1.adj_scaled, by = c("ID", "HEI_cluster_2")) %>%
+  left_join(df_p_t1_main_outcomes, by = c("ID", "HEI_cluster_2"))
+# ADD HEI TOT to make sure HEI groups are aligned 
+in24_ng.f_t1_scaled <- left_join(in24_ng.f_t1_scaled, df_p_t1[, c("ID", "HEI.2020_tot")], by = "ID")
+in24_ng.f_t1_scaled %>% group_by(HEI_cluster_2) %>% summarise(hei_median = median(HEI.2020_tot))
+
+# non scaled
+in24_ng.f_t1 <- left_join(in24_ng_t1.adj, in24_fi_t1.adj_filtered, by = c("ID", "HEI_cluster_2")) %>%
+  left_join(in24_fg_t1.adj, by = c("ID", "HEI_cluster_2")) %>%
+  left_join(df_p_t1_main_outcomes, by = c("ID", "HEI_cluster_2"))
+# ADD HEI TOT  
+in24_ng.f_t1 <- left_join(in24_ng.f_t1, df_p_t1[, c("ID", "HEI.2020_tot")], by = "ID")
+in24_ng.f_t1 %>% group_by(HEI_cluster_2) %>% summarise(hei_median = median(HEI.2020_tot))
+
+# FFQ
+FFQ_p_ni_t1.adj_scaled <- FFQ_p_ni_t1.adj_scaled[, -5] %>%
+  left_join(df_p_t1_main_outcomes, by = c("ID", "HEI_cluster_2"))
+
+```
+
+
+# the next step is not necessary but I want to carry out a sanity check to make sure scaling does not affect my outcome (due to maybe differences in data spread)
+
+```{r check differences between scaled and raw STAI to make sure scaling does not affect STAI }
+
+# mean / median of STAI 
+boxplot(STAI.s_score ~ HEI_cluster_2, data = in24_ng.f_t1_scaled)
+boxplot(STAI.s_score_scaled ~ HEI_cluster_2, data = in24_ng.f_t1_scaled)
+
+# mean values
+mean(in24_ng.f_t1_scaled$STAI.s_score)
+sd(in24_ng.f_t1_scaled$STAI.s_score)
+
+# med raw STAI by HEI
+in24_ng.f_t1_scaled %>% group_by(HEI_cluster_2) %>% summarise(stai_mean = mean(STAI.s_score))
+
+# med scaled STAI by HEI 
+in24_ng.f_t1_scaled %>% group_by(HEI_cluster_2) %>% summarise(stai_mean = mean(STAI.s_score_scaled))
+
+# Raw distribution
+ggplot(in24_ng.f_t1_scaled, aes(x = STAI.s_score, fill = factor(HEI_cluster_2))) + 
+  geom_density(alpha = 0.4) + 
+  theme_minimal()
+
+# Scaled distribution
+ggplot(in24_ng.f_t1_scaled, aes(x = scale(STAI.s_score_scaled), fill = factor(HEI_cluster_2))) + 
+  geom_density(alpha = 0.4) + 
+  theme_minimal()
+
+# sd by group
+sd(in24_ng.f_t1_scaled$STAI.s_score[in24_ng.f_t1_scaled$HEI_cluster_2 == 1])
+sd(in24_ng.f_t1_scaled$STAI.s_score[in24_ng.f_t1_scaled$HEI_cluster_2 == 2])
+
+# skewness by group 
+skewness(in24_ng.f_t1_scaled$STAI.s_score[in24_ng.f_t1_scaled$HEI_cluster_2 == 1])
+skewness(in24_ng.f_t1_scaled$STAI.s_score[in24_ng.f_t1_scaled$HEI_cluster_2 == 2])
+
+# ALL GOOD WITH SCALED VALUES
+
+# check also log distress 
+boxplot(log_composite_distress ~ HEI_cluster_2, data = in24_ng.f_t1_scaled)
+in24_ng.f_t1_scaled %>% group_by(HEI_cluster_2) %>% summarise(distress_mean = mean(log_composite_distress))
+in24_ng.f_t1_scaled %>% group_by(HEI_cluster_2) %>% summarise(distress_med = median(log_composite_distress))
+
+ggplot(in24_ng.f_t1_scaled, aes(x = scale(log_composite_distress), fill = factor(HEI_cluster_2))) + 
+  geom_density(alpha = 0.4) + 
+  theme_minimal()
+
+```
+
+# BEFORE STATS MODELS SUCH AS REGRESSIONS YOU MIGHT WANT TO CHECK:
+# perfect prediction (only for logistic regression) and multicollinearity check through:
+# 1) outcome separation (logistic regression)
+# 1) variance inflation factor (VIF) = metrics quantifying level of multicollinearity.It measures how much a predictor is correlated with others. VIF = 1 means no collinearity, = 2 moderate correlation, = 5 high collinearity, = 10 severe collinearity 
+
+# PP occurs when one or more predictors completely determine the outcome and leads to infinite (or extremely large) coefficients in logistic regression
+#(https://www.linkedin.com/advice/3/how-can-you-handle-perfect-separation-logistic-regression-cluke)
+# when applying logistic regression, the standard errors are very large indicating model instability possibly due to perfect prediction.
+# logistic regression alone cannot handle this as it is based on MLE and can estimate prob between 0 and 1 yet not 1
+# you can handle this problem as follow: remove var to make the model simpler, combine var, regularize, use bayesian models with priors
+
+# multicollinearity can distort coeff and lead to instability of the model. It can also make PP more likely (as if one var is strongly corr to another that predicts the outcome, it may also appear to predict the outcome) --> if two highly correlated variables provide redundant information, the model may overfit and exaggerate their predictive power.
+# e.g., if X and X1 are both highly correlated with STAI_s_cat, they may create an artificial near-perfect separation when combined.
+# both issues can lead to large SE and unstable coeff. PP BECAUSE IF FAIL TO CONVERGE, MULTICOLL BECAUSE IT GIVES UNSTABLE ESTIMATES.
+
+# also when adopting methods such as Elastic Net, extreme collinearity can be tricky, especially if N is small
+# why is high IVF a concern for EN?
+# instability in feature selection - arbitrary selection of features, unstable coeff (Large SD Compared to Mean), fluctuating coefficients across CV folds
+
+# As I am only looking at continuous STAI, I am here checking multicollinearity
+# filtering by VIF can also be helpful in reducing data dimensions
+
+
+```{r - Multicollinearity checks with scaled values so to remove unit dependency }
+
+# Check for multicollineairty within ng and f
+# VIF
+vif(lm(STAI.s_score_scaled ~ ., data = in24_ng.f_t1_scaled[, c(3:21, 43)])) # VIF hugely inflated (most vars > 10)
+vif(lm(STAI.s_score_scaled ~ ., data = in24_ng.f_t1_scaled[, c(3, 22:40, 43)])) # VIF > 10 for UPF and MIN
+
+# CORR MATRIX
+cor_matrix <- cor(in24_ng.f_t1_scaled[, 3:22], use = "pairwise.complete.obs")
+high_corr_pairs <- which(abs(cor_matrix) > 0.8 & lower.tri(cor_matrix), arr.ind = TRUE)
+# Print variable pairs with high correlation
+for (i in seq_len(nrow(high_corr_pairs))) {
+  cat(
+    colnames(cor_matrix)[high_corr_pairs[i, 1]], "and",
+    colnames(cor_matrix)[high_corr_pairs[i, 2]], 
+    "have correlation:", cor_matrix[high_corr_pairs[i, 1], high_corr_pairs[i, 2]], "\n"
+  )
+} 
+
+# remove high corr variables (corr > 0.8)
+in24_ng.f_scaled_cl <- in24_ng.f_t1_scaled %>%
+  select(-any_of(c("Fat_g", "Carbohydrate_g", "Total.sugars_g", "Vit_fat_soluble_mg", "Vit_water_soluble_mg", "Minerals_salt_mg", "Minerals_no_salt_mg", "AOAC_g", "Minimal_Kcal", "Unsatd.FA_g", "Beef_g", "Processed.meat_g")))
+
+# IVF again 
+vif(lm(STAI.s_score_scaled ~ ., data = in24_ng.f_scaled_cl[, c(2:12, 31)]))
+vif(lm(STAI.s_score_scaled ~ ., data = in24_ng.f_scaled_cl[, c(13:28, 31)]))
+
+in24_ng.f_t1_cl <- in24_ng.f_t1 %>%
+  select(-any_of(c("Fat_g", "Carbohydrate_g", "Total.sugars_g", "Vit_fat_soluble_mg", "Vit_water_soluble_mg", "Minerals_salt_mg", "Minerals_no_salt_mg", "AOAC_g", "Minimal_Kcal", "Unsatd.FA_g", "Beef_g", "Processed.meat_g")))
+
+```
+
+```{r - full in24 df }
+
+in24_f_medoids <- in24_fi_t1.adj.cat.medoids[, intersect(colnames(in24_fi_t1.adj.cat.medoids), colnames(in24_ng.f_scaled_cl))] %>%
+  left_join(in24_fg_t1.adj.cat.medoids[, intersect(colnames(in24_fg_t1.adj.cat.medoids), colnames(in24_ng.f_scaled_cl))], by = c("ID", "HEI_cluster_2"))
+
+```
+
+################ METADATA
+
+```{r - metadata }
+
+# extract metadata of interest
+metadata_t1 <- df_p_t1[, c("ID", "HEI_cluster_2", "GSRS.tot", "BMI", "IPAQ.SF.score", "DASS.21.s_score", "WASI...tot.comp.score",
+                           "Mestrual.cycle.phase", "Day_time_stool_sample", "smoking or vaping", "Habitual.activity.level")] %>%
+  mutate(
+    HC = ifelse(Mestrual.cycle.phase == "hc", T, F)
+  ) %>%
+  select(-Mestrual.cycle.phase)
+
+# check distr
+cols_idx <- which(sapply(metadata_t1, is.numeric))
+cols <- colnames(metadata_t1)[sapply(metadata_t1, is.numeric)]
+distr_f(metadata_t1, cols)
+sapply(metadata_t1[, cols], shapiro.test)
+sapply(metadata_t1[, cols], skewness)
+
+# log transformed
+cols_tolog <- cols[c(1:2, 4:5)] # ipaq gets worst with log transformation
+metadata_t1[, cols_tolog] <- log1p_skewed_transform(metadata_t1[, cols_tolog], 1, 4)
+sapply(metadata_t1[, cols], skewness)
+distr_f(metadata_t1, cols)
+
+# scale 
+metadata_t1 <- metadata_t1 %>%
+  mutate(across(all_of(cols_idx), 
+                ~ scale(.x)[,1],
+                .names = "{col}_scaled")) %>%
+  select(-all_of(cols))
+
+# factorize
+metadata_t1[, c(3:4, 6)] <- lapply(metadata_t1[, c(3:4, 6)], as.factor)
+
+```
+
+
+```{r - save df }
+
+# ng, scaled
+saveRDS(in24_ng_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng_t1.adj_scaled.rds")
+# fg, medoids, scaled
+saveRDS(in24_fg_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj_scaled.rds")
+# fi, medoids, scaled
+saveRDS(in24_fi_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj_scaled.rds")
+
+# main outcomes
+saveRDS(df_p_t1_main_outcomes, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1_main_outcomes_scaled.rds")
+
+# df completed with outcomes
+# ffq, scaled
+saveRDS(FFQ_p_ni_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.adj_scaled.rds")
+# ng + f, adj
+saveRDS(in24_ng.f_t1_cl, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_t1_cl.rds")
+saveRDS(in24_ng.f_scaled_cl, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_scaled_cl.rds")
+# medoids 
+saveRDS(in24_f_medoids, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_f_medoids.rds")
+
+# save metadata
+saveRDS(metadata_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+
+```
+
+
+
+

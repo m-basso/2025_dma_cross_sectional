@@ -1,0 +1,317 @@
+---
+title: "Basic stats_HEI_outcomes"
+output: html_notebook
+---
+
+```{r - load libraries }
+library(dplyr)       
+library(ggplot2)     
+library(ggbeeswarm)  
+library(ggsignif)    
+library(readr)       
+library(openxlsx)
+```
+
+```{r}
+# load dependencies 
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/basic_stats_utils.R")
+```
+
+
+```{r}
+
+#load saved dataset
+df_p_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/df_p_t1.rds")
+df_p_t1_outcomes <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/df_p_t1_outcomes.rds")
+FFQ_p_ni_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/FFQ_p_ni_t1.rds")
+FFQ_p_ni_t1.adj.lm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/FFQ_p_ni_t1.adj.lm.rds")
+
+
+# Confirm data is loaded correctly
+head(df_p_t1)
+head(df_p_t1_outcomes)
+head(FFQ_p_ni_t1)
+head(FFQ_p_ni_t1.adj.lm)
+
+```
+
+
+
+
+#DESCRIPTIVE STATS AND HP TESTING BY HEI CLUSTERS ------------------------------------------------
+
+# HEI score
+```{r Basics statistics - HEI scores }
+
+#HEI SCORES by K - descriptive stats and HP testing
+#summary
+ds_HEI_k <- calculate_ds_stat(df_p_t1, HEI_cluster_2, cols_mean = "HEI.2020_tot", cols_med = "HEI.2020_tot", 
+                              custom_stats = list(columns = "HEI.2020_tot", functions = c(min = min, max = max)))
+
+# distribution
+shapiro.test(df_p_t1$HEI.2020_tot[df_p_t1$HEI_cluster_2 == 2])
+shapiro.test(df_p_t1$HEI.2020_tot[df_p_t1$HEI_cluster_2 == 1])
+
+#Wilcoxon test
+(wilcox.test(HEI.2020_tot ~ HEI_cluster_2, data = df_p_t1))$p.value
+
+```
+
+# HEI components
+```{r Basic statistic - HEI subgroups }
+
+#select columns of interest
+cols_HEI_groups <- intersect(c("HEI_veg", "HEI_wholefr", "HEI_wholegr", "HEI_greenbeans", "HEI_totfr", "HEI_dairy", 
+                                "HEI_protfoods", "HEI_prot_seaplants", "HEI_FAs", "HEI_sodium", "HEI_refinedgr", "HEI_satfat", "HEI_addsug"), names(df_p_t1))
+# summary 
+ds_HEI_groups_k <- calculate_ds_stat(df_p_t1, HEI_cluster_2, cols_med = cols_HEI_groups) 
+ds_HEI_groups_k <- fix_column_names(ds_HEI_groups_k, "HEI 1", "HEI 2")
+
+# Wilcoxon test
+ds_HEI_groups_k$p <- apply_t_w_test_across(df_p_t1, cols_w = cols_HEI_groups,IV = HEI_cluster_2)
+
+# Adjust p-values for multiple testing
+ds_HEI_groups_k$q <- p.adjust(ds_HEI_groups_k$p, method = 'BH')
+
+# round
+ds_HEI_groups_k$p <- round(ds_HEI_groups_k$p, 3)
+ds_HEI_groups_k$q <- round(ds_HEI_groups_k$q, 3)
+
+```
+
+```{r - edit and save }
+
+# feature col
+ds_HEI_groups_k <- ds_HEI_groups_k %>%
+  mutate(
+    `HEI component` = c("Vegetables", "Whole fruits", "whole grains", "green beans", "total fruits", "dairy", "protein foods", "seafood/ plant-based protein foods", "Unsaturated/Saturated FAs", "Sodium", "Refined grains", "Saturated fats", "Added sugars")) %>%
+  relocate(`HEI component`, .before = `HEI 1`)
+
+rownames(ds_HEI_groups_k) <- NULL
+
+# excel
+write.xlsx(ds_HEI_groups_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/ds_HEI_groups_k.xlsx")
+
+```
+
+
+# metadata
+```{r Basics statistics - METADATA }
+
+#continuous variables
+#summary
+ds_metadata_k <- calculate_ds_stat(df_p_t1, group_var = HEI_cluster_2, 
+                                   cols_mean = c("Age_T0", "WASI...tot.comp.score", "STAI.t_score"),
+                                   cols_med = c("BMI", "GSRS.tot", "DASS.21.s_score", "IPAQ.SF.score"))
+
+ds_metadata_k <- fix_column_names(ds_metadata_k, "HEI 1", "HEI 2")
+
+# t test
+ds_metadata_k$p <- round(apply_t_w_test_across(df_p_t1, cols_t = c("Age_T0", "WASI...tot.comp.score", "STAI.t_score"),
+                                         cols_w = c("BMI", "GSRS.tot", "DASS.21.s_score", "IPAQ.SF.score"),
+                                         IV = HEI_cluster_2),3)
+
+  #categorical variables
+#CONTRACEPTIVES
+c_table_c <- table(df_p_t1$HEI_cluster_2, df_p_t1$contraceptives)
+(prop.table(c_table_c))*100
+chisq.test(c_table_c) # 0.7868
+
+#SMOKING/VAPING
+c_table_sv <- table(df_p_t1$HEI_cluster_2, df_p_t1$`smoking or vaping`)
+(prop.table(c_table_sv))*100
+fisher.test(c_table_sv) #fisher exact test is preferable when frequencies are lower than 5 # 0.7021
+
+#HABITUAL ACTIVITY
+c_table_activity <- table(df_p_t1$HEI_cluster_2, df_p_t1$Habitual.activity.level)
+(prop.table(c_table_activity))*100
+fisher.test(c_table_activity) #0.6615
+
+#diagnosis
+c_table_psydiagnosis <- table(df_p_t1$HEI_cluster_2, df_p_t1$Psychiatric.diagnosis)
+c_table_psydiagnosis
+c_table_meddiagnosis <- table(df_p_t1$HEI_cluster_2, df_p_t1$Medical.diagnosis)
+c_table_meddiagnosis
+
+
+# adjust all p values manually
+p_all <- c(0.000, ds_metadata_k$p, 0.787, 0.702, 0.661)
+
+q_all <- round(p.adjust(p_all), 3)
+
+```
+
+```{r - save }
+
+# import and edit
+table <- read.delim("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R//Excel files/Tables.stats.HEI.txt", sep = "\t", header = T)
+table <- table[1:14, 2:8]
+
+```
+
+
+# raw FFQ
+```{r Descriptive statistics - FFQ_t1.unadj - ABS NI}
+
+# select cols of interest
+cols_to_summ <- colnames(FFQ_p_ni_t1)[4:ncol(FFQ_p_ni_t1)]
+# calculate ds stats
+ds_FFQ_p_ni_t1.k <- calculate_ds_stat(FFQ_p_ni_t1, HEI_cluster_2, cols_med = cols_to_summ)
+ds_FFQ_p_ni_t1.k<- fix_column_names(ds_FFQ_p_ni_t1.k, "HEI 1", "HEI 2")
+
+```
+
+```{r edit and save }
+
+ds_FFQ_p_ni_t1.k$`FFQ raw dietary variable` <- gsub("_median_iqr", "", rownames(ds_FFQ_p_ni_t1.k))
+ds_FFQ_p_ni_t1.k$`FFQ raw dietary variable`<- gsub("_", " ",ds_FFQ_p_ni_t1.k$`FFQ raw dietary variable`)
+ds_FFQ_p_ni_t1.k$`FFQ raw dietary variable` <- gsub("\\(", " (", ds_FFQ_p_ni_t1.k$`FFQ raw dietary variable`)
+
+ds_FFQ_p_ni_t1.k <- ds_FFQ_p_ni_t1.k %>%
+  relocate(`FFQ raw dietary variable`, .before = `HEI 1`)
+
+rownames(ds_FFQ_p_ni_t1.k) <- NULL
+
+ds_FFQ_p_ni_t1.k[ds_FFQ_p_ni_t1.k$`FFQ raw dietary variable` == "Energy (Kcal)", "HEI 2"] <- "1201 (529)"
+
+# excel
+write.xlsx(ds_FFQ_p_ni_t1.k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R//Excel files/ds_FFQ_unadj.xlsx")
+
+```
+
+
+# adj FFQ
+```{r Basics statistics - FFQ_t1.adj - REL NI}
+
+# select columns of interest
+cols_to_test <- colnames(FFQ_p_ni_t1.adj.lm)[4:ncol(FFQ_p_ni_t1.adj.lm)] # excluding micronutrient as FFQ has low reliability for that
+
+# summary
+ds_FFQ_p_ni_t1.adj.k <-  calculate_ds_stat(FFQ_p_ni_t1.adj.lm, HEI_cluster_2, cols_med = cols_to_test)
+ds_FFQ_p_ni_t1.adj.k <- fix_column_names(ds_FFQ_p_ni_t1.adj.k, "HEI 1", "HEI 2")
+
+
+# Wilcoxon test
+ds_FFQ_p_ni_t1.adj.k$p <- apply_t_w_test_across(FFQ_p_ni_t1.adj.lm, cols_w = cols_to_test, IV = HEI_cluster_2)
+
+# Adjust p-values for multiple testing
+ds_FFQ_p_ni_t1.adj.k$q <- p.adjust(ds_FFQ_p_ni_t1.adj.k$p, method = 'BH')
+
+# round
+ds_FFQ_p_ni_t1.adj.k$p <- round(ds_FFQ_p_ni_t1.adj.k$p, 3)
+ds_FFQ_p_ni_t1.adj.k$q <- round(ds_FFQ_p_ni_t1.adj.k$q, 3)
+
+```
+
+```{r - edit and save }
+
+ds_FFQ_p_ni_t1.adj.k$`FFQ adjusted intake` <- gsub("_median_iqr", "", rownames(ds_FFQ_p_ni_t1.adj.k))
+ds_FFQ_p_ni_t1.adj.k$`FFQ adjusted intake`<- gsub("_", " ",ds_FFQ_p_ni_t1.adj.k$`FFQ adjusted intake`)
+ds_FFQ_p_ni_t1.adj.k$`FFQ adjusted intake` <- gsub("\\(", " (", ds_FFQ_p_ni_t1.adj.k$`FFQ adjusted intake`)
+
+ds_FFQ_p_ni_t1.adj.k <- ds_FFQ_p_ni_t1.adj.k %>%
+  relocate(`FFQ adjusted intake`, .before = `HEI 1`)
+
+rownames(ds_FFQ_p_ni_t1.k) <- NULL
+
+ds_FFQ_p_ni_t1.adj.k[ds_FFQ_p_ni_t1.adj.k$`FFQ adjusted intake` == "Energy (Kcal)", "HEI 2"] <- "1201 (529)"
+
+# Save
+write.xlsx(ds_FFQ_p_ni_t1.adj.k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R//Excel files/test_FFQ_adj.xlsx")
+
+```
+
+```{r - friendly comprehensive table }
+
+# import and edit
+table_2 <- read.delim(
+  "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/ds_test_FFQ_k.txt",
+  sep = "\t",
+  header = TRUE,
+  check.names = FALSE)
+table_2 <- table_2[-31, ]
+
+# friendly version
+table_2_t <- kable(table_2, format = "html", align = "l", table.attr = "class='table table-bordered'") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Save
+save_kable(table_2_t, file = "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Formatted files/ds_test_FFQ_k.html")
+
+```
+
+
+```{r Basics statistics - OUTCOMES}
+
+# summary
+ds_outcomes_k <- calculate_ds_stat(df_p_t1_outcomes, HEI_cluster_2, cols_mean = c("STAI.s_score", "log_composite_distress"))
+
+# t-test
+ds_outcomes_k$p <- apply_t_w_test_across(df_p_t1_outcomes, cols_t = c("STAI.s_score", "log_composite_distress"), IV = HEI_cluster_2)
+
+# Adjust p-values for multiple testing
+ds_outcomes_k$p.adj <- p.adjust(ds_outcomes_k$p, method = 'BH')
+
+# round
+ds_outcomes_k$p <- round(ds_outcomes_k$p, 3)
+ds_outcomes_k$p.adj <- round(ds_outcomes_k$p.adj, 3)
+
+```
+
+
+#VISUALIZATION  ------------------------------------------------
+
+```{r VIsualize by clusters - HEI scores}
+# HEI
+# Boxplot + Beeswarm for HEI by Clusters
+HEI_scores_k <- ggplot(df_p_t1, aes(x = HEI_cluster_2, y = HEI.2020_tot)) +
+  geom_violin(aes(fill = HEI_cluster_2), alpha = 0.4, color = NA, trim = FALSE) +
+  scale_fill_manual(
+    name = "HEI-2020 cluster",
+    values = c("2" = "#d95f02", "1" = "#1b9e77")) +
+  geom_boxplot(outlier.shape = "square") +
+  geom_beeswarm(alpha = 0.7, size = 1.5) +
+  labs(title = "HEI-2020 scores by Clusters", x = "Clusters", y = "HEI-2020 Score") +
+  geom_signif(comparisons = list(c("1", "2")), map_signif_level = TRUE) +
+  theme_minimal()
+
+# save 
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_scores_k.png", bg = "white", plot = HEI_scores_k, width = 6, height = 4, dpi = 300)
+
+```
+
+```{r Visualize by clusters - OUTCOMES }
+
+# Boxplot, violin plot and beeswarm for STAI
+HEI_anx_k <- ggplot(df_p_t1, aes(x = HEI_cluster_2, y = STAI.s_sc_res)) +
+  geom_violin(aes(fill = HEI_cluster_2)) +
+  scale_fill_manual(
+    name = "HEI cluster",
+    values = c("2" = "#fdae6b", "1" = "#6baed6")) +
+  geom_boxplot(outlier.shape = "square") +
+  geom_beeswarm(alpha = 0.5, size = 2.5, cex = 3) +
+  labs(x = "HEI Cluster", y = "residualized STAI-s") +
+  geom_signif(comparisons = list(c("1", "2")), map_signif_level = TRUE) +
+  theme_minimal()
+
+# save 
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/HEI_STAI_k.png", bg = "white", plot = HEI_anx_k, width = 6, height = 4, dpi = 300)
+
+ggplot(df_p_t1_outcomes, aes(x = HEI_cluster_2, y = STAI.s_score)) +
+  geom_violin(aes(fill = HEI_cluster_2)) +  
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  geom_beeswarm(alpha = 0.7, size = 1.5) +
+  labs(title = "Boxplot STAI-s by HEI groups", x = "HEI group", y = "STAI-s") +
+  geom_signif(comparison = list(c("1", "2")), map_signif_level = TRUE, test = "wilcox.test") +
+  theme_minimal()
+
+# Boxplot, violin plot and beeswarm for composite distress
+ggplot(df_p_t1_outcomes, aes(x = HEI_cluster_2, y = log_composite_distress)) +
+  geom_violin(aes(fill = HEI_cluster_2)) +
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  geom_beeswarm(alpha = 0.7, size = 1.5) +
+  labs(title = "Psychological Distress by HEI Clusters", x = "HEI Cluster", y = "Composite Score") +
+  geom_signif(comparisons = list(c("1", "2")), map_signif_level = TRUE, test = "wilcox.test") +
+  theme_minimal()
+```
+

@@ -1,0 +1,264 @@
+---
+title: "Gm function beta diversity"
+output: html_notebook
+---
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(mia)
+library(scater)
+library(patchwork)
+library(MiRKAT)
+
+```
+
+```{r - upload df }
+tse_gbm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds") 
+tse_ko <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_ko.rds") 
+metadata_t1<- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+
+```
+
+```{r - distance and ordination MDS }
+
+# MDS
+tse_gbm <- runMDS(
+  x = tse_gbm,
+  FUN = getDissimilarity,
+  ncomponents = 25,
+  method = "euclidean",
+  assay.type = "clr",
+  name = "MDS_aitchison"
+)
+
+# extract eigenvalues
+MDS <-reducedDim(tse_gbm, "MDS_aitchison")
+MDS_eig <- attr(MDS, "eig")
+
+# turn into %
+MDS_pos <- MDS_eig[MDS_eig > 0]
+pct <- 100*MDS_pos/ sum(MDS_pos) #34.1  #24.5  # 17.7  # 9.4 
+
+
+```
+
+```{r - visualize }
+
+MDS_p <- plotReducedDim(
+  object = tse_gbm,
+  dimred = "MDS_aitchison",
+  percentVar = c(34.1, 24.5, 17.7),
+    colour_by = "STAI.s_score", 
+    size_by = "HEI_cluster_2",
+    ncomponents = 3,
+    text_size = 10) +
+  scale_color_viridis_c(
+    name   = "STAI-s (score)",
+    option = "inferno" 
+  ) +
+  guides(size = guide_legend(title = "HEI cluster")) +
+  theme(
+    text            = element_text(size = 18),   # base size for all text
+    axis.title      = element_text(size = 16),   # axis titles
+    axis.text       = element_text(size = 14),   # axis tick labels
+    legend.title    = element_text(size = 20),   # legend titles
+    legend.text     = element_text(size = 18),   # legend item labels
+    strip.text      = element_text(size = 16)
+  )
+
+MDS_p 
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/MDS_gbm_aitchison.png", bg = "white", plot = MDS_p, width = 13, height = 15, dpi = 300)
+
+
+
+```
+
+```{r - same but categorical STAI }
+
+MDS_p_cat <- plotReducedDim(
+  object = tse_gbm,
+  dimred = "MDS_aitchison",
+  percentVar = c(34.1, 24.5, 17.7),
+    colour_by = "STAI_s_cat.binary", 
+    size_by = "HEI_cluster_2",
+    ncomponents = 3,
+    text_size = 10) +
+  guides(size = guide_legend(title = "HEI cluster")) +
+  theme(
+    text            = element_text(size = 18),   # base size for all text
+    axis.title      = element_text(size = 16),   # axis titles
+    axis.text       = element_text(size = 14),   # axis tick labels
+    legend.title    = element_text(size = 20),   # legend titles
+    legend.text     = element_text(size = 18),   # legend item labels
+    strip.text      = element_text(size = 16)
+  )
+
+MDS_p_cat
+
+
+```
+
+```{r - dissimilarity matrix }
+
+# dissimilarity matrix
+tse_gbm <- addDissimilarity(
+  x          = tse_gbm,
+  FUN        = getDissimilarity,
+  method     = "euclidean",
+  assay.type = "clr",
+  name       = "aitchison"      
+)
+
+# visualize
+metadata(tse_gbm)$aitchison
+
+```
+
+```{r - MiRKAT - aitchison - 1 cov }
+
+# HEI as cov
+X_cov <- model.matrix(~ HEI_cluster_2, data = colData(tse_gbm))[, -1, drop=FALSE]
+# convert D to Kernel
+K <- D2K(metadata(tse_gbm)$aitchison)
+# run MIRKAT
+mirkat_gbm <- MiRKAT(
+  y = colData(tse_gbm)$STAI.s_score_scaled,
+  X = X_cov,
+  Ks = K,
+  method = "permutation",
+  out_type = "C",
+  returnKRV = T,
+  returnR2 = T
+)
+# view
+mirkat_gbm
+
+```
+
+```{r - MiRKAT - aitchison - 2 cov }
+
+# attach GSRS
+colD <- as.data.frame(colData(tse_gbm))
+
+colD$GSRS.tot_scaled <- metadata_t1$GSRS.tot_scaled[
+                           match(rownames(colD), metadata_t1$ID)]
+# cov matrix
+X_cov_2 <- model.matrix(~ HEI_cluster_2 + GSRS.tot_scaled, data = colD)[, -1, drop=FALSE]
+# run MIRKAT
+mirkat_gbm_cov2 <- MiRKAT(
+  y = colData(tse_gbm)$STAI.s_score_scaled,
+  X = X_cov_2,
+  Ks = K,
+  method = "permutation",
+  out_type = "C",
+  returnKRV = T,
+  returnR2 = T
+)
+
+mirkat_gbm_cov2
+
+```
+
+
+# KO
+
+```{r - distance and ordination MDS }
+
+# MDS
+tse_ko <- runMDS(
+  x = tse_ko,
+  FUN = getDissimilarity,
+  ncomponents = 25,
+  method = "euclidean",
+  assay.type = "clr",
+  name = "MDS_aitchison"
+)
+
+# extract eigenvalues
+MDS <-reducedDim(tse_ko, "MDS_aitchison")
+MDS_eig <- attr(MDS, "eig")
+
+# turn into %
+MDS_pos <- MDS_eig[MDS_eig > 0]
+pct <- 100*MDS_pos/ sum(MDS_pos) # 29.4 # 20.3, # 5.9
+
+
+```
+
+```{r - visualize }
+
+MDS_p <- plotReducedDim(
+  object = tse_ko,
+  dimred = "MDS_aitchison",
+  percentVar = c(29.4, 20.3, 5.9),
+    colour_by = "STAI.s_score", 
+    size_by = "HEI_cluster_2",
+    ncomponents = 3,
+    text_size = 10) +
+  scale_color_viridis_c(
+    name   = "STAI-s (score)",
+    option = "inferno" 
+  ) +
+  guides(size = guide_legend(title = "HEI cluster")) +
+  theme(
+    text            = element_text(size = 18),   # base size for all text
+    axis.title      = element_text(size = 16),   # axis titles
+    axis.text       = element_text(size = 14),   # axis tick labels
+    legend.title    = element_text(size = 20),   # legend titles
+    legend.text     = element_text(size = 18),   # legend item labels
+    strip.text      = element_text(size = 16)
+  )
+
+MDS_p 
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/MDS_ko_aitchison.png", bg = "white", plot = MDS_p, width = 20, height = 25, dpi = 300)
+
+
+
+```
+
+```{r - dissimilarity matrix }
+
+# dissimilarity matrix
+tse_ko <- addDissimilarity(
+  x          = tse_ko,
+  FUN        = getDissimilarity,
+  method     = "euclidean",
+  assay.type = "clr",
+  name       = "aitchison"      
+)
+
+# visualize
+metadata(tse_ko)$aitchison
+
+```
+
+```{r - Mirkat }
+
+# convert D to Kernel
+K <- D2K(metadata(tse_ko)$aitchison)
+# attach GSRS
+colD <- as.data.frame(colData(tse_ko))
+
+colD$GSRS.tot_scaled <- metadata_t1$GSRS.tot_scaled[
+                           match(rownames(colD), metadata_t1$ID)]
+# cov matrix
+X_cov_2 <- model.matrix(~ HEI_cluster_2 + GSRS.tot_scaled, data = colD)[, -1, drop=FALSE]
+# run MIRKAT
+mirkat_gbm_cov2 <- MiRKAT(
+  y = colData(tse_ko)$STAI.s_score_scaled,
+  X = X_cov_2,
+  Ks = K,
+  method = "permutation",
+  out_type = "C",
+  returnKRV = T,
+  returnR2 = T
+)
+
+mirkat_gbm_cov2
+
+```
+
+

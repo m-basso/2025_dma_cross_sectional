@@ -1,0 +1,502 @@
+---
+title: "R basic statistics in24 adj"
+output: html_notebook
+---
+
+```{r - load libraries }
+library(tidyr)
+library(dplyr) 
+library(Hmisc)
+library(openxlsx)
+library(corrplot)
+library(rstatix) # for par_wise_fisher
+library(DescTools) # for Cochran-Armitage Trend test
+library(ggplot2)
+
+```
+
+
+```{r - source }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/basic_stats_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/EDA_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/Distr_visualization_utils.R")
+```
+
+
+```{r - data }
+in24_ni_t1.adj.lm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_ni_t1.adj.lm.rds")
+
+in24_nutr_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_nutr_t1.adj.rds")
+in24_ng_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_ng_t1.adj.rds")
+
+in24_fi_t1.adj.cat <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fi_t1.adj.cat.rds")
+in24_fi_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fi_t1.adj.cat.medoids.rds")
+
+in24_fg_t1.adj.cat <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fg_t1.adj.cat.rds")
+in24_fg_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fg_t1.adj.rds")
+in24_fg_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fg_t1.adj.cat.medoids.rds")
+
+```
+
+
+
+# in24 nutr ------------------------------------------------
+
+```{r - in24 nutr distribution }
+
+cols_to_vis <- names(in24_nutr_t1.adj)[5:ncol(in24_nutr_t1.adj)]
+
+in24_nutr_dist <- distr_f(in24_nutr_t1.adj, cols_to_vis)
+in24_nutr_dist
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_adj_nutr_dist.png", bg = "white", plot = in24_nutr_dist, width = 20, height = 13, dpi = 300)
+
+```
+
+```{r - in24 nutr corr matrix }
+
+# define df to cocor
+df_cocor_nutr <- in24_nutr_t1.adj[, 5:ncol(in24_nutr_t1.adj)]
+
+#calculate cor matrix
+in24_nutr_cocor <- cocor(df_cocor_nutr, 'spearman')
+
+#extract cor matrix
+cor_matrix_nutr <- in24_nutr_cocor$cor_matrix
+
+# upper triangle, excluding diagonal
+upper_tri <- cor_matrix_nutr[upper.tri(cor_matrix_nutr)]
+prop_strong_corr <- sum(abs(upper_tri) > 0.8) / length(upper_tri) * 100 # 0.7 % 
+
+```
+
+```{r - IN24 nutr bs by HEI k }
+
+#define cols
+cols_to_summ <- cols_to_vis
+
+#summarise
+ds_in24_nutr_k <- calculate_ds_stat(in24_nutr_t1.adj, HEI_cluster_2, cols_med = cols_to_summ)
+ds_in24_nutr_k <- fix_column_names(ds_in24_nutr_k, "HEI 1", "HEI 2")
+
+# Wilcoxon test
+ds_in24_nutr_k$p <- apply_t_w_test_across(in24_nutr_t1.adj, cols_w = cols_to_summ, IV = HEI_cluster_2)
+
+# Adjust p-values for multiple testing
+ds_in24_nutr_k$q <- p.adjust(ds_in24_nutr_k$p, method = 'BH')
+
+# round
+ds_in24_nutr_k$p <- round(ds_in24_nutr_k$p, 3)
+ds_in24_nutr_k$q <- round(ds_in24_nutr_k$q, 3)
+
+```
+
+```{r edit and save - nutr }
+
+# edit
+ds_in24_nutr_k$Nutrient <- gsub("_median_iqr", "", rownames(ds_in24_nutr_k)) %>%
+  gsub("\\.", " ", ., fixed = FALSE) %>%           # replace dots with spaces
+  gsub("_g$", " (g)", .) %>%                       # replace _g at end
+  gsub("_mg$", " (mg)", .)  
+
+ds_in24_nutr_k <- ds_in24_nutr_k %>%
+  relocate(Nutrient, .before = `HEI 1`)
+
+rownames(ds_in24_nutr_k) <- NULL
+
+# Save
+write.xlsx(ds_in24_nutr_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_NUTR_k.xlsx", rowNames = TRUE)
+
+```
+
+
+# in24 ng ------------------------------------------------
+
+```{r - in24 ng distribution }
+
+cols_to_vis.ng <- names(in24_ng_t1.adj)[5:ncol(in24_ng_t1.adj)]
+
+in24_ng_dist <- distr_f(in24_ng_t1.adj, cols_to_vis.ng)
+in24_ng_dist
+
+# save
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_adj_ng_dist.png", bg = "white", plot = in24_ng_dist, width = 15, height = 9, dpi = 300)
+
+```
+
+```{r - in24 ng corr matrix }
+
+# define df to cocor
+df_cocor_ng <- in24_ng_t1.adj[, !colnames(in24_ng_t1.adj) %in% c("ID", "HEI_cluster_2", "days.adherence", "Energy..kcal.", "Minerals_tot_mg")]
+
+#calculate cor matrix
+in24_ng_cocor <- cocor(df_cocor_ng, 'spearman')
+
+#extract cor matrix
+cor_matrix_ng <- in24_ng_cocor$cor_matrix
+
+# upper triangle, excluding diagonal
+upper_tri <- cor_matrix_ng[upper.tri(cor_matrix_ng)]
+prop_strong_corr <- sum(abs(upper_tri) > 0.8) / length(upper_tri) * 100 # 2.1 %
+
+```
+
+```{r - IN24 ng bs by HEI k }
+
+#define cols
+cols_to_summ.ng <- cols_to_vis.ng
+
+#summarise
+ds_in24_ng_k <- calculate_ds_stat(in24_ng_t1.adj, HEI_cluster_2, cols_med = cols_to_summ.ng)
+ds_in24_ng_k <- fix_column_names(ds_in24_ng_k, "HEI 1", "HEI 2")
+
+# Wilcoxon test
+ds_in24_ng_k$p <- apply_t_w_test_across(in24_ng_t1.adj, cols_w = cols_to_summ.ng, IV = HEI_cluster_2)
+
+# Adjust p-values for multiple testing
+ds_in24_ng_k$q <- p.adjust(ds_in24_ng_k$p, method = 'BH')
+
+# round
+ds_in24_ng_k$p <- round(ds_in24_ng_k$p, 3)
+ds_in24_ng_k$q <- round(ds_in24_ng_k$q, 3)
+
+```
+
+```{r edit and save - ng }
+
+# edit
+ds_in24_ng_k$Nutrient <- gsub("_median_iqr", "", rownames(ds_in24_ng_k)) %>%
+  gsub("\\.", " ", ., fixed = FALSE) %>%
+  gsub("_g$", " (g)", .) %>%                      
+  gsub("_mg$", " (mg)", .) %>%
+  gsub("\\_", " ", ., fixed = FALSE)
+
+ds_in24_ng_k <- ds_in24_ng_k %>%
+  relocate(Nutrient, .before = `HEI 1`)
+
+rownames(ds_in24_ng_k) <- NULL
+
+# Save
+write.xlsx(ds_in24_ng_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_NG_k.xlsx", rowNames = TRUE)
+
+```
+
+
+# in24 fi ------------------------------------------------
+
+# use Cochran-Armitage Trend Test for ordinal variables: used in categorical data analysis when the aim is to assess for the presence of an association between a variable with two categories 
+# and an ordinal variable with k categories. it evaluates whether there is a significant trend in proportions across an ordinal variable (e.g., from "Low" to "High"). 
+# It assumes that the ordering carries meaning and checks for a linear relationship along that order. The test's null hypothesis is that there is no trend so there is not pairwise comparison 
+# between categories. If proportions increase as the categories increase, the trend is positive. If proportions decrease as the categories increase, the trend is negative.
+# nb: the test can handle zeros but this can lower stat power
+
+```{r IN24 fi bs by HEI k }
+
+# define cols
+cols_to_summ.fi <- colnames(in24_fi_t1.adj.cat)[5:ncol(in24_fi_t1.adj.cat)]
+
+# calculate
+ds_in24_fi_k <- calculate_prop_t(in24_fi_t1.adj.cat, "HEI_cluster_2", cols_names = cols_to_summ.fi)
+
+# extract proportions
+proportions_fi <- ds_in24_fi_k$proportions
+
+# modifiy list to df
+proportions_fi_df <- prop.as.data.frame(proportions_fi, Preferred.Oil_var = "Preferred.Oil", Var.S = "Fruit_g", Var.E = "Other.Cheese_g", all_categories = c("0","1","2","3"))
+
+# extract pref oil df
+preferred_oil_df <- proportions_fi_df$preferred_oil_prop
+# extract other vars
+fi_df <- proportions_fi_df$other_var_prop
+
+# extract test
+tests_fi <- ds_in24_fi_k$tests
+tests_fi_p <- sapply(tests_fi, function(x) x$p_value)
+tests_fi_p
+
+# merge prop and p values
+preferred_oil_df$p_value <- round(tests_fi_p[1],3) # don't report on manuscript
+fi_df$p_value <- round(tests_fi_p[-1], 3)
+# adj p
+fi_df$q <- round((p.adjust(fi_df$p_value, method = 'BH')), 3)
+# round %
+fi_df[, 2:9] <- lapply(fi_df[, 2:9], function(x) as.vector(round(x, digits = 1)))
+
+
+```
+
+```{r - edit and save - fi }
+
+# rename col 
+colnames(fi_df) <- c( "Food item", "Non-Eaters (HEI 1)", "Low (HEI 1)", "Medium (HEI 1)", "High (HEI 1)", "Non-Eaters (HEI 2)", "Low (HEI 2)", "Medium (HEI 2)", "High (HEI 2)", "p", "q")
+colnames(preferred_oil_df) <- c("Food item", "other (HEI 1)", "other (HEI 2)", "Olive oil_ (HEI 1)", "Olive oil (HEI 2)", "Rapeseed sunflower oil (HEI 1)", "Rapeseed sunflower oil (HEI 2)", "p")
+
+# rename var
+fi_df$`Food item` <- fi_df$`Food item` %>%
+  gsub("\\.", " ", ., fixed = FALSE) %>%
+  gsub("_g$", "", .)
+
+```
+
+```{r IN24 fi stacked barcharts }
+
+# call barchart facet function
+fi_cols <- colnames(fi_df)[1:9]
+
+# Print selected columns and their structure
+print("Selected columns:")
+print(fi_cols)
+print("Structure of fi_df:") # ensure colnames are cat_HEI
+print(str(fi_df))
+
+# create plot
+fi_bar <- bar_stacked_f(fi_df, variable_col = "Food item", columns = fi_cols, levels = c("Non-Eaters", "Low", "Medium", "High", debug = TRUE))
+# change colors
+color_palette <- c("#f1c232", "#ffee6d", "#cacaff", "#bfd5e2") 
+fi_bar <- fi_bar + scale_fill_manual(values = color_palette)
+fi_bar
+
+ # save
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_fi_bar.png", bg = "white", plot = fi_bar, width = 15, height = 9, dpi = 300)
+
+
+```
+
+```{r - edit and save - fi }
+
+fi_df <- fi_df %>%
+  mutate(`Food item` = paste0(`Food item`, " (%)"))
+
+# Save
+write.xlsx(preferred_oil_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_preferred_oil_k.xlsx", rowNames = F)
+write.xlsx(fi_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_FI_k.xlsx", rowNames = F)
+
+
+```
+
+
+# in24 fg ------------------------------------------------
+
+```{r IN24 fg CATEGORIES bs by HEI k }
+
+# define cols
+cols_to_summ.fg <- colnames(in24_fg_t1.adj.cat)[5:ncol(in24_fg_t1.adj.cat)]
+
+# calculate
+ds_in24_fg_k <- calculate_prop_t(in24_fg_t1.adj.cat, "HEI_cluster_2", cols_names = cols_to_summ.fg)
+
+# extract proportions
+proportions_fg <- ds_in24_fg_k$proportions
+
+# modifiy list to df
+proportions_fg_df <- prop.as.data.frame(proportions_fg, Preferred.Oil_var = NULL, Var.S = "Processed.meat_g", Var.E = "Fish_g", all_categories = c("0","1","2","3"))
+
+# extract DF
+fg_df <- proportions_fg_df$other_var_prop
+
+# extract test
+tests_fg <- ds_in24_fg_k$tests
+tests_fg_p <- sapply(tests_fg, function(x) x$p_value)
+tests_fg_p
+
+# merge prop and p values
+fg_df$p_value <- round(tests_fg_p, 3)
+# adj p
+fg_df$q <- round((p.adjust(fg_df$p_value, method = 'BH')), 3)
+# round %
+fg_df[, 2:9] <- lapply(fg_df[, 2:9], function(x) as.vector(round(x, digits = 1)))
+
+```
+
+```{r - edit - fg }
+
+# rename col 
+colnames(fg_df) <- c( "Food group", "Non-Eaters (HEI 1)", "Low (HEI 1)", "Medium (HEI 1)", "High (HEI 1)", "Non-Eaters (HEI 2)", "Low (HEI 2)", "Medium (HEI 2)", "High (HEI 2)", "p", "q")
+
+# rename var
+fg_df$`Food group` <- fg_df$`Food group` %>%
+  gsub("\\.", " ", ., fixed = FALSE) %>%
+  gsub("_g$", "", .)
+
+```
+
+```{r - IN24 fg stacked barcharts }
+
+# call barchart facet function
+fg_cols <- colnames(fg_df)[1:9]
+
+# Print selected columns and their structure
+print("Selected columns:")
+print(fg_cols)
+print("Structure of fg_df:")
+print(str(fg_df))
+
+# create plot
+fg_bar <- bar_stacked_f(fg_df, variable_col = "Food group", columns = fg_cols, levels = c("Non-Eaters", "Low", "Medium", "High", debug = TRUE))
+# change colors
+color_palette <- c("#f1c232", "#ffee6d", "#cacaff", "#bfd5e2") 
+fg_bar <- fg_bar + scale_fill_manual(values = color_palette)
+fg_bar
+
+# save
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_fg_bar.png", bg = "white", plot = fg_bar, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r - edit and save - fg }
+
+# edit 
+fg_df <- fg_df %>%
+  mutate(`Food group` = paste0(`Food group`, " (%)"))
+
+# save
+write.xlsx(fg_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/fg_CAT_test_HEI.xlsx", rowNames = F)
+
+
+```
+
+
+# in24 fg processing con ------------------------------------------------ 
+
+```{r IN24 fg CON processing level }
+
+cols_to_summ.proc <- names(in24_fg_t1.adj)[5:6]
+
+ds_in24_fg_proc_k <- calculate_ds_stat(in24_fg_t1.adj, HEI_cluster_2, cols_med = cols_to_summ.proc)
+ds_in24_fg_proc_k <- fix_column_names(ds_in24_fg_proc_k, "HEI 1", "HEI 2")
+
+# Wilcoxon test
+ds_in24_fg_proc_k$p <- apply_t_w_test_across(in24_fg_t1.adj, cols_w = cols_to_summ.proc, IV = HEI_cluster_2)
+
+# Adjust p-values for multiple testing
+ds_in24_fg_proc_k$q <- p.adjust(ds_in24_fg_proc_k$p, method = 'BH')
+
+# round
+ds_in24_fg_proc_k$p <- round(ds_in24_fg_proc_k$p, 3)
+ds_in24_fg_proc_k$q <- round(ds_in24_fg_proc_k$q, 3)
+
+```
+
+```{r - edit and save - proc }
+# edit
+ds_in24_fg_proc_k$`Processing level` <- gsub("_median_iqr", "", rownames(ds_in24_fg_proc_k)) %>%
+  gsub("\\_", " ", ., fixed = FALSE) %>%
+   gsub("Kcal", "(Kcal) ", .,)
+  
+
+ds_in24_fg_proc_k <- ds_in24_fg_proc_k %>%
+  relocate(`Processing level`, .before = `HEI 1`)
+
+rownames(ds_in24_fg_proc_k) <- NULL
+
+
+write.xlsx(ds_in24_fg_proc_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/ds_in24_fg_proc_k.xlsx", rowNames = T)
+
+```
+
+
+# corr ni - processing level ------------------------------------------------
+
+```{r IN24 fg MIN PROC LEV - NI }
+
+# prep df
+# merge nutr and ng cols
+in24_nutr_ng <- cbind(in24_nutr_t1.adj[, 5:ncol(in24_nutr_t1.adj)], in24_ng_t1.adj[,5:ncol(in24_ng_t1.adj)])
+# Identify unique column names
+unique_col_names <- !duplicated(names(in24_nutr_ng))
+# Retain only unique columns
+in24_nutr_ng <- in24_nutr_ng[, unique_col_names]
+
+# stats
+# calculate cor stat col wise
+cor_ni_min_proc <- lapply(in24_nutr_ng, function(x) cor.test(x, in24_fg_t1.adj$Minimal_Kcal, method = "spearman"))
+# extract rho values
+cor_ni_min_proc_r <- sapply(cor_ni_min_proc, function(x) x$estimate)
+# extract p values
+cor_ni_min_proc_p <- sapply(cor_ni_min_proc, function(x) x$p.value)
+# p adj
+cor_ni_min_proc_p.adj <- p.adjust(cor_ni_min_proc_p, method = 'BH')
+# create df
+cor_ni_min_proc_df <- cbind(cor_ni_min_proc_r, cor_ni_min_proc_p, cor_ni_min_proc_p.adj) %>% as.data.frame()
+colnames(cor_ni_min_proc_df) <- c("spearman rho", "p_value", "p_adj")
+row.names(cor_ni_min_proc_df) <- names(in24_nutr_ng)
+
+
+```
+
+```{r IN24 fg UPF LEV - NI }
+
+# stats
+# calculate cor stat col wise
+cor_ni_upf <- lapply(in24_nutr_ng, function(x) cor.test(x, in24_fg_t1.adj$`Processed/UPF_Kcal`, method = "spearman"))
+# extract rho values
+cor_ni_upf_r <- sapply(cor_ni_upf, function(x) x$estimate)
+# extract p values
+cor_ni_upf_p <- sapply(cor_ni_upf, function(x) x$p.value)
+# p adj
+cor_ni_upf_p.adj <- p.adjust(cor_ni_upf_p, method = 'BH')
+# create df
+cor_ni_upf_df <- cbind(cor_ni_upf_r, cor_ni_upf_p, cor_ni_upf_p.adj) %>% as.data.frame()
+colnames(cor_ni_upf_df) <- c("spearman rho", "p_value", "p_adj")
+row.names(cor_ni_upf_df) <- names(in24_nutr_ng)
+
+
+```
+
+```{r IN24 PROC - NI VISUALIZE }
+
+# prep df
+cor_ni_proc_df <- cbind(names(in24_nutr_ng), cor_ni_min_proc_r, cor_ni_min_proc_p.adj, cor_ni_upf_r, cor_ni_upf_p.adj) %>% as.data.frame()
+# remove rownames
+rownames(cor_ni_proc_df) <- NULL
+# name NI col
+names(cor_ni_proc_df)[1] <- "NI" 
+# as numeric
+cor_ni_proc_df[, 2:5] <- sapply(cor_ni_proc_df[,2:5], function(x) as.numeric(x))
+# reshape
+cor_ni_proc_df <- cor_ni_proc_df %>%
+  pivot_longer(
+    cols = - NI,
+    names_to = c("Processing level", "stat"),
+    names_pattern = "cor_ni_(min_proc|upf)_(r|p\\.adj)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  )
+
+
+# * for significance
+cor_ni_proc_df <- cor_ni_proc_df %>%
+  mutate(Significance = case_when(
+    p.adj <= 0.001 ~ "***",
+    p.adj <= 0.01 ~ "**",
+    p.adj <= 0.05 ~ "*",
+    TRUE ~ ""
+  ))
+
+
+# heatmap
+cor_ni_proc_p <- ggplot(cor_ni_proc_df, aes(x = `Processing level`, y = NI, fill = r)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Significance), color = "black") +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red", midpoint = 0,
+    name = "Correlation"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 8)
+  ) +
+  labs(
+    title = "NI - Processing correlation",
+    x = "Processing Level",
+    y = "Nutrient"
+  )
+
+cor_ni_proc_p
+
+```
+
+

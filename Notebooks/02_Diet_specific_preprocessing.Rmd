@@ -1,0 +1,373 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r - load libraries }
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(tidyr)
+library(rlang)
+library(ggbeeswarm)
+library(cluster)
+library(tibble)
+
+```
+
+```{r - source }
+#source 
+rmarkdown::render("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Notebooks/01_Core_preprocessing.Rmd", output_format = NULL)
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Diet_specific_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/basic_stats_utils.R")
+
+```
+
+```{r - check data }
+#confirm data is available to use 
+head(FFQ_p_ni_t1)
+head(in24_ni_t1)
+head(in24_fi_t1)
+head(in24_fg_t1)
+```
+
+
+
+# FFQ ni - unadj -------------------------------------------------
+
+```{r FFQ_t1.unadj visualize }
+
+# create cols variable
+FFQ_cols_names <- colnames(FFQ_p_ni_t1)[5:ncol(FFQ_p_ni_t1)]
+# cor with EI
+FFQ_cor <- cor_f(FFQ_p_ni_t1, FFQ_cols_names, "Energy(Kcal)")
+FFQ_cor
+# FFQ ni distribution shapes and variability
+FFQ_distr <- distr_f(FFQ_p_ni_t1, FFQ_cols_names)
+FFQ_distr
+
+```
+ 
+```{r FFQ_t1.unadj adjust }
+
+#select cols to retain 
+FFQ_cols_adj <- colnames(FFQ_p_ni_t1)[5:11] #exclusion of micronutrients for little data accuracy captured with FFQ methods
+
+#call function and retrieve df
+FFQ_p_ni_t1.adj.lm.list <- adjust_nutrients_lm(data = FFQ_p_ni_t1[, 1:11], energy_col = "Energy(Kcal)", nutrient_cols = FFQ_cols_adj)
+FFQ_p_ni_t1.lm.res <- FFQ_p_ni_t1.adj.lm.list$residuals_lm
+FFQ_p_ni_t1.lm.fitted <- FFQ_p_ni_t1.adj.lm.list$fitted_values_lm
+FFQ_p_ni_t1.adj.lm <- FFQ_p_ni_t1.adj.lm.list$data_adjusted_lm
+```
+
+```{r FFQ_t1.adj residual checks}
+
+# Residual analysis
+# Plot residuals
+# you want a random scatterplot (homoscedasticity), non-obvious patterns (linearity, homoscedasticity), no extreme outliers, residuals simmetrically distributed around 0
+FFQ_res_lm_p <- res_fit_cor_f(FFQ_p_ni_t1.lm.res, FFQ_p_ni_t1.lm.fitted)
+FFQ_res_lm_p
+# QQ plots
+FFQ_res_lm_qq <- qqplot_f(FFQ_p_ni_t1.lm.res)
+FFQ_res_lm_qq
+
+```
+
+```{r Visualize adjusted values }
+
+# Get the minimum value for each column in FFQ_cols_names
+FFQ_min_values <- sapply(FFQ_p_ni_t1.adj.lm[, FFQ_cols_adj], min)
+FFQ_min_values
+
+```
+
+
+# FFQ df to save after EDA :
+# FFQ_p_ni_t1 for comparison against RDA 
+# FFQ_p_ni_t1.adj.lm to check for diff between HEI groups 
+
+
+
+# in24 fi - unadj ------------------------------------------------
+
+```{r in24_t1.unadj Visualize FOOD ITEMS }
+
+# cols
+fi_cols_names <- names(in24_fi_t1)[4:32]
+# cor with EI
+fi_cor_f <- cor_f(in24_fi_t1, fi_cols_names, "Energy..kcal.") #NI distributions and outliers
+fi_cor_f
+
+# FI distribution shapes and variability
+fi_distr_f <- distr_f(in24_fi_t1, fi_cols_names)
+fi_distr_f
+
+```
+
+```{r in24_t1 Adjust FOOD ITEMS }
+
+#standardize
+in24_fi_t1.adj <- standardize(in24_fi_t1, fi_cols_names, "Energy..kcal.")
+distr_f(in24_fi_t1.adj, fi_cols_names)
+
+```
+
+
+# K-MEDOIDS CLUSTERING FOR DATA SEGMENTATION
+
+# data segmentation is a process of dividing a dataset into clusters of similar data points based on shared characteristics. the aim is to cluster points that are similar to each other. 
+# clustering is made by selecting medoids (representative point within each cluster), assign data point to each cluster based on XXX distance, and optimizing the medoids iteratively 
+# by minimizing dissimilarity within clusters. Each cluster will then represent a segment of the data.
+
+# K-medoids minimizes the sum of dissimilarities (e.g., distances) between data points and their cluster medoid (an actual data point, vs centroid which is a representative data point). it computes 
+# pairwise distances for all points in the clusters to identify the medoid, unlike k-means which just calculate the cluster mean. 
+# It is robust to outliers and assigns points to clusters based on proximity to medoids: Unlike k-means, k-medoids is less sensitive to extreme values (based on median vs mean), making it suitable for skewed or noisy data.
+# Iterates between assigning points to clusters and optimizing medoids until no further improvement.
+
+# here it will be implemented using Euclidean distance which works well for 1D clustering, as it simplifies to absolute differences between values. if you have a multidimensional dataset you
+# might want to use Manhattan distance which does not overemphasize large differences
+# encoding of non-eaters as zero ensures realistic clustering based on intake levels, effectively grouping non-eaters, low, and high consumers.
+# setting k = 3 balance interpretability and the data's distribution, avoiding under- or over-clusterin and is naturally aligned with the natural presence of non-eaters, low/medium/ and high consumers.
+
+
+```{r in24_t1.adj Categorize FOOD ITEMS }
+
+# assess proportion of non-eaters across the dataset
+fi_median_non_eaters <- median(colSums(in24_fi_t1.adj == 0) / nrow(in24_fi_t1.adj)) # 47%
+
+# remove variables with non-eaters > 50% , KEEP ID
+in24_fi_t1.adj_filtered <- in24_fi_t1.adj %>%
+  select(ID, all_of(fi_cols_names)) %>%                                 
+  select(
+    ID,                                                                  
+    where(~ is.numeric(.x) && mean(.x == 0, na.rm = TRUE) <= 0.5)       
+  ) %>% as.data.frame()
+
+# set rownames
+rownames(in24_fi_t1.adj_filtered) <- in24_fi_t1.adj_filtered$ID
+in24_fi_t1.adj_filtered <- in24_fi_t1.adj_filtered %>% select(-ID) %>% as.matrix()
+
+
+# categorize based on k-medoids clustering to maintain meaningful distance between consumption groups. Use median instead means to reduce the impact of outliers and skewed distribution
+set.seed(123)
+in24_fi_t1.adj.cat.list <- apply(in24_fi_t1.adj_filtered, 2, function(col) kmed_column(col, centers = 3))
+
+# extract categories 
+in24_fi_t1.adj.cat <- sapply(in24_fi_t1.adj.cat.list, function(list) list$Clusters) %>% as.data.frame()
+# factorize
+in24_fi_t1.adj.cat <- lapply(in24_fi_t1.adj.cat, function(x) factor(x, ordered = TRUE))
+# merge with other cols
+in24_fi_t1.adj.cat <- cbind(in24_fi_t1.adj[, c("ID", "days.adherence", "Energy..kcal.", "Preferred.Oil")], in24_fi_t1.adj.cat) %>% as.data.frame()
+# factorize oil col and merge rare categories (did not use/ other and butter)
+in24_fi_t1.adj.cat$Preferred.Oil <- factor(in24_fi_t1.adj.cat$Preferred.Oil,
+  levels = c("butter", "other", "did not use", "olive oil", "rapeseed/sunflower oil"),
+  labels = c("other", "other", "other", "olive oil", "rapeseed/sunflower oil")
+)
+
+# extract medoids
+in24_fi_t1.adj.cat.medoids <- sapply(in24_fi_t1.adj.cat.list, function(list) list$Column) %>% as.data.frame()
+# rowname to col
+in24_fi_t1.adj.cat.medoids <- rownames_to_column(in24_fi_t1.adj.cat.medoids, "ID")
+in24_fi_t1.adj_filtered <- in24_fi_t1.adj_filtered %>% as.data.frame() %>% rownames_to_column("ID")
+
+
+# fi_cat, fi_cat.medoids
+```
+
+
+
+
+# in24 fg - unadj ------------------------------------------------
+
+
+```{r in24_t1.unadj Visualize FOOD GROUPS}
+
+# cols
+fg_cols_names <- names(in24_fg_t1)[4:ncol(in24_fg_t1)]
+# cor with EI
+fg_cor_f <- cor_f(in24_fg_t1, fg_cols_names, "Energy..kcal.") #NI distributions and outliers
+fg_cor_f
+# FG distribution shapes and variability
+fg_distr_f <- distr_f(in24_fg_t1, fg_cols_names)
+fg_distr_f
+
+# minimal and UPF Kcal follow a approx normal distr so use them as continuous 
+
+```
+
+```{r in24_t1 Adjust FOOD GROUPS}
+
+# standardize
+in24_fg_t1.adj <- standardize(in24_fg_t1, fg_cols_names, "Energy..kcal.") %>% as.data.frame()
+
+```
+
+```{r in24_t1.adj Categorize FOOD GROUPS}
+
+# assess proportion of non-eaters across the dataset
+fg_median_non_eaters <- median(colSums(in24_fg_t1.adj == 0) / nrow(in24_fg_t1.adj)) # 0% 
+
+# set rownames
+rownames(in24_fg_t1.adj) <- in24_fg_t1.adj$ID
+in24_fg_t1.adj <- in24_fg_t1.adj %>% select(-ID) %>% as.matrix()
+
+# subset df
+in24_fg_t1.adj_subset <- in24_fg_t1.adj[, 3:ncol(in24_fg_t1.adj)]
+
+# apply k-med
+set.seed(123)
+in24_fg_t1.adj.cat.list <- apply(in24_fg_t1.adj_subset, 2, function(col) kmed_column(col, centers = 3))
+
+# extract categories 
+in24_fg_t1.adj.cat <- sapply(in24_fg_t1.adj.cat.list, function(list) list$Cluster) %>% as.data.frame()
+rownames(in24_fg_t1.adj.cat) <- rownames(in24_fg_t1.adj_subset)
+# factorize
+in24_fg_t1.adj.cat <- in24_fg_t1.adj.cat %>%
+  mutate(across(everything(), ~ factor(.x, ordered = TRUE))) %>%              
+  rownames_to_column("ID")
+
+# extract medoids
+in24_fg_t1.adj.cat.medoids <- sapply(in24_fg_t1.adj.cat.list, function(list) list$Column) %>% as.data.frame()
+in24_fg_t1.adj.cat.medoids <- rownames_to_column(in24_fg_t1.adj.cat.medoids, "ID")
+
+# ROWNAMES and merge with other cols
+in24_fg_t1.adj <- in24_fg_t1.adj %>% as.data.frame() %>% rownames_to_column("ID") %>% select(-`Energy..kcal.`, -days.adherence
+)
+
+
+# fg_cat, fg_cat.medoids, fg_con
+
+```
+
+
+
+
+
+# in24 ni - unadj -------------------------------------------------
+
+
+```{r in24_t1.unadj Visualize NUTRIENT INTAKE }
+
+# create col variable
+ni_cols_names <- names(in24_ni_t1)[4:ncol(in24_ni_t1)]
+# cor with EI
+ni_cor_f <- cor_f(in24_ni_t1, ni_cols_names, "Energy..kcal.") #NI distributions and outliers
+ni_cor_f
+# NI distribution shapes and variability
+ni_distr_f <- distr_f(in24_ni_t1, ni_cols_names)
+ni_distr_f
+
+```
+
+```{r in24_t1 add RATIO cols NUTRIENT INTAKE }
+
+in24_ni_t1 <- in24_ni_t1 %>%
+   mutate(
+      Cis.n6_to_Cis.n3 = Cis.n6.FA_g / Cis.n3.FA_g,
+      Satd_to_Unsatd.FA = Satd.FA_g / Unsatd.FA_g,
+      Na_to_K = Sodium_mg  / Potassium_mg)
+      
+```
+
+```{r in24_t1 Adjust NUTRIENT INTAKE }
+
+#select cols to adjust 
+in24_ni_t1.toadj <- in24_ni_t1 %>%
+  dplyr::select(-c("FS.Table.sugar_g", "FS.Other.Added.Sugar_g", "FS.Honey_g", "FS.Fruit.Juice_g", 
+            "FS.Dried.Fruit_g", "FS.Fruit.Puree_g", "FS.Stewed.Fruit_g", "FS.Vegetable.Puree_g", "Alcohol_g", "Water_g", 
+             "Cis.n6_to_Cis.n3", "Satd_to_Unsatd.FA", "Na_to_K")) #exclude FS.fi as will be used as raw values to calculate the major sources of FS
+
+# save unadj 
+saveRDS(in24_ni_t1.toadj, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ni_t1.toadj.rds")
+
+#select col names
+in24_cols_adj <- colnames(in24_ni_t1.toadj)[4:length(in24_ni_t1.toadj)]
+
+# apply residual model
+in24_ni_t1.adj.lm.list <- adjust_nutrients_lm(data = in24_ni_t1.toadj, energy_col = "Energy..kcal.", nutrient_cols = in24_cols_adj)
+# retrieve df
+in24_ni_t1.lm.res <- in24_ni_t1.adj.lm.list$residuals_lm
+in24_ni_t1.lm.fitted <- in24_ni_t1.adj.lm.list$fitted_values_lm
+in24_ni_t1.adj.lm <- in24_ni_t1.adj.lm.list$data_adjusted_lm 
+
+in24_ni_t1.adj.lm <- in24_ni_t1.adj.lm %>%
+  select(-`Energy..kcal.`, -days.adherence)
+
+
+# save adj 
+saveRDS(in24_ni_t1.adj.lm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ni_t1.adj.lm.rds")
+
+```
+
+```{r in24_t1 split df}
+
+# nutrients 
+in24_nutr_t1.adj <- in24_ni_t1.adj.lm[, c(1, 5, 10:55)]
+# nutrient groups and ratio                                     
+in24_ng_t1.adj <- in24_ni_t1.adj.lm[, c(1:4, 6:9, 17, 56:length(in24_ni_t1.adj.lm))] %>%
+  left_join(in24_ni_t1[, c("ID", "Cis.n6_to_Cis.n3", "Satd_to_Unsatd.FA", "Na_to_K")], by = "ID")
+
+```
+
+```{r in24_t1.adj Residuals check }
+
+# Residual analysis
+# Plot residuals
+in24_res_lm_p <- res_fit_cor_f(in24_ni_t1.lm.res, in24_ni_t1.lm.fitted)
+in24_res_lm_p
+# QQ plots
+in24_res_lm_qq <- qqplot_f(in24_ni_t1.lm.res)
+in24_res_lm_qq
+```
+
+
+```{r in24_t1 Visualize adjusted values }
+
+# min values
+min_values <- sapply(in24_ni_t1.adj.lm, function(col) min(col, na.rm = TRUE))
+min_g_value <- min(sapply(in24_ni_t1.adj.lm[grepl("_g$", colnames(in24_ni_t1.adj.lm))], min, na.rm = TRUE))
+min_mg_value <- min(sapply(in24_ni_t1.adj.lm[grepl("_mg$", colnames(in24_ni_t1.adj.lm))], min, na.rm = TRUE)) 
+min_g_value # - 3.94 intrinsic and milk sugars
+min_mg_value # - 13.12 vit C 
+
+#neg values  represent slightly lower-than-expected intakes after adjusting for energy intake
+
+```
+
+
+# format the nutrient database for use as a medium in the longitudinal micom models (see DMA longitudinal)
+# you want raw values (adjusted values woulnd't make sense biologically here)
+
+```{r - create dietary database for MICOM vmh }
+
+#select cols 
+in24_ni_t1.toadj.vmh <- in24_ni_t1 %>%
+  dplyr::select(-c("FS.Table.sugar_g", "FS.Other.Added.Sugar_g", "FS.Honey_g", "FS.Fruit.Juice_g", 
+            "FS.Dried.Fruit_g", "FS.Fruit.Puree_g", "FS.Stewed.Fruit_g", "FS.Vegetable.Puree_g", "Water_g", 
+            "Cis.n6_to_Cis.n3", "Satd_to_Unsatd.FA", "Na_to_K"))
+
+# mg col to g
+mgtog <- grep("_mg$", names(in24_ni_t1.toadj.vmh), value = TRUE)
+
+# convert
+in24_ni_t1.toadj.vmh.g <- in24_ni_t1.toadj.vmh %>%
+  mutate(across(all_of(mgtog), 
+                ~.x /1000,
+                .names = "{.col}_g")) %>%
+  select(-all_of(mgtog))
+
+# fix names
+colnames(in24_ni_t1.toadj.vmh.g) <- sub("_mg_g$", "_g", colnames(in24_ni_t1.toadj.vmh.g))
+
+# save unadj 
+saveRDS(in24_ni_t1.toadj.vmh.g, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/in24_ni_t1.toadj.vmh.g.rds")
+
+
+```
+
+
+
+
+
+
+

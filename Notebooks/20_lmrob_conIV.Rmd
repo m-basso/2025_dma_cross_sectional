@@ -1,0 +1,1051 @@
+---
+title: "Gm - Anxiety continuous models"
+output: html_notebook
+---
+
+```{r}
+ library(purrr)
+library(tidyr)
+library(ggplot2)
+library(ggbeeswarm)
+library(mia)
+library(dplyr)
+library(openxlsx)
+library(kableExtra)
+library(robustbase)
+library(tibble)
+
+```
+
+```{r - upload dependencies }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data//Workspace.1/Scripts/Gm_utils.R")
+
+```
+
+```{r - upload data }
+tse_taxa_ab20 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_ab20.rds")
+metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+tse_gbm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds")
+alpha_df <- readRDS( "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df.rds")
+alpha_df_ko <- readRDS( "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df_ko.rds")
+
+```
+
+```{r - CTRL }
+
+# set control parameters for the S- and M- steps
+ctrl <- lmrob.control(
+  setting = "KS2014",
+  maxit.scale = 500, 
+  k.max      = 2000,
+  max.it     = 1000) 
+
+```
+
+
+########################################################## alpha div
+
+```{r - alpha div models }
+
+# -------------------------------- taxa 
+df <- left_join(alpha_df, metadata_t1[, c("ID", "STAI.s_sc_res", "HEI_cluster_2")], by = "ID")
+
+df <- df %>%
+  mutate(across(
+         .cols = c(richness, shannon, invsimpson),
+         .fns = ~scale(.)[,1],
+         .names = "{.col}_sc"
+  ))
+
+lmrob_alpha <- lapply(
+  df[, c("richness_sc", "shannon_sc", "invsimpson_sc")],
+  function(x) { 
+      lmrob(
+      STAI.s_sc_res ~ x,
+      data = df,
+      control = ctrl
+    )
+  }
+)
+
+# table
+lmrob_alpha_df <- lmrob_table(lmrob_alpha, length(lmrob_alpha))
+
+# -------------------------------- KO
+df_ko <- left_join(alpha_df_ko, metadata_t1[, c("ID", "STAI.s_sc_res", "HEI_cluster_2")], by = "ID")
+
+df_ko <- df_ko %>%
+  mutate(across(
+         .cols = c(richness, shannon, invsimpson),
+         .fns = ~scale(.)[,1],
+         .names = "{.col}_sc"
+  ))
+
+lmrob_alpha_ko <- lapply(
+  df_ko[, c("richness_sc", "shannon_sc", "invsimpson_sc")],
+  function(x) { 
+      lmrob(
+      STAI.s_sc_res ~ x,
+      data = df_ko,
+      control = ctrl
+    )
+  }
+)
+
+# table
+lmrob_alpha_df_ko <- lmrob_table(lmrob_alpha_ko, length(lmrob_alpha_ko))
+
+```
+
+
+
+
+########################################################## l6 
+
+# run models
+
+```{r STAI ~ l6 model }
+
+### 1. subset based on N > 20 & preprocess
+rowData(tse_taxa_ab20)$N_presence
+tse_l6_Nsub <- tse_taxa_ab20[rowData(tse_taxa_ab20)$N_presence >= 20]
+
+# define l6 feats
+feats_l6 <- rownames(tse_l6_Nsub)
+
+# make names 
+feats_l6 <- make.names(feats_l6)
+rownames(tse_l6_Nsub) <- make.names(rownames(tse_l6_Nsub))
+
+# preprocess
+tse_l6_Nsub <- assay(tse_l6_Nsub, "clr") %>% t() %>% as.data.frame() %>% rownames_to_column("ID") %>% left_join(metadata_t1[, c("ID", "HEI_cluster_2", "STAI.s_sc_res")], by = "ID")
+
+# 2. zero df based on count
+tse_count <- tse_taxa_ab20[rowData(tse_taxa_ab20)$N_presence >= 20]
+rownames(tse_count) <-make.names(rownames(tse_count))
+tse_count <- assay(tse_count) %>% t() %>% as.data.frame() %>% rownames_to_column("ID")
+
+identical(rownames(tse_l6_Nsub), rownames(tse_count))
+
+### 3. apply lmrob through each feature including only IDs with feature > 0 
+
+# initialize
+lmrob_l6 <- setNames(vector("list", length(feats_l6)), feats_l6)
+
+stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
+
+# loop
+for (feature in feats_l6) {
+  keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
+  df   <- tse_l6_Nsub[keep, , drop = FALSE]
+  
+  # standardize response and predictor inside the subset
+  df$y <- df$STAI.s_sc_res
+  df$x <- scale(df[[feature]])[,1]
+
+  model <- lmrob(y ~ x, data = df, control = ctrl)
+
+  lmrob_l6[[feature]] <- list(model = model, N = sum(keep))
+}
+
+# extract models
+lmrob_l6_models <- lapply(lmrob_l6, function(x) x$model)
+
+### 4. table
+lmrob_l6_df <- lmrob_table(lmrob_l6_models, length(feats_l6))
+lmrob_l6_df <- lmrob_l6_df %>% as.data.frame() %>% rownames_to_column("Feature")
+
+# extract Ns
+Ns <- sapply(lmrob_l6, function(x) x$N) %>% as.data.frame() %>% rownames_to_column("Feature")
+colnames(Ns)[2] <- "N"
+
+# merge 
+lmrob_l6_df <- left_join(lmrob_l6_df, Ns, by = "Feature")
+
+# rownames
+rownames(lmrob_l6_df) <- lmrob_l6_df$Feature
+rownames(lmrob_l6_df)<- gsub("[._]", " ", rownames(lmrob_l6_df))
+
+lmrob_l6_df <- lmrob_l6_df[, -1]
+
+# save excel
+write.xlsx(lmrob_l6_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6_cont.xlsx", rowNames = T)
+
+```
+
+```{r - l6 ~ HEI cluster models }
+
+lmrob_l6 <- setNames(vector("list", length(feats_l6)), feats_l6)
+
+stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
+
+# loop
+for (feature in feats_l6) {
+  keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
+  df   <- tse_l6_Nsub[keep, , drop = FALSE]
+  
+  # standardize response and predictor inside the subset
+  df$x <- df$HEI_cluster_2
+  df$y <- scale(df[[feature]])[,1]
+
+  model <- lmrob(y ~ x, data = df, control = ctrl)
+
+  lmrob_l6[[feature]] <- list(model = model, N = sum(keep))
+}
+
+# extract models
+lmrob_l6_models <- lapply(lmrob_l6, function(x) x$model)
+
+### table
+lmrob_l6_df <- lmrob_table(lmrob_l6_models, length(feats_l6))
+lmrob_l6_df <- lmrob_l6_df %>% as.data.frame() %>% rownames_to_column("Feature")
+
+# extract Ns
+Ns <- sapply(lmrob_l6, function(x) x$N) %>% as.data.frame() %>% rownames_to_column("Feature")
+colnames(Ns)[2] <- "N"
+
+# merge 
+lmrob_l6_df <- left_join(lmrob_l6_df, Ns, by = "Feature")
+
+# rownames
+rownames(lmrob_l6_df) <- lmrob_l6_df$Feature
+rownames(lmrob_l6_df)<- gsub("[._]", " ", rownames(lmrob_l6_df))
+
+lmrob_l6_df <- lmrob_l6_df[, -1]
+
+```
+
+```{r save }
+
+# save rds
+saveRDS(tse_l6_Nsub, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_l6_Nsub.rds")
+saveRDS(tse_count, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_l6_count.rds")
+
+```
+
+```{r - loop check }
+
+# quick check to make sure the code below was working correctly
+tse_count
+tse_l6_Nsub
+
+keep <- tse_count$Bilophila.wadsworthia > 0
+df <- tse_l6_Nsub[keep, , drop = F]
+
+summary(lmrob(STAI.s_sc_res ~ scale(Bilophila.wadsworthia) + HEI_cluster_2, data = df, control = ctrl))
+
+```
+
+```{r - STAI ~ hei cluster + l6 models }
+
+# initialize
+lmrob_l6.hei <- setNames(vector("list", length(feats_l6)), feats_l6)
+
+stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
+
+for (feature in feats_l6) {
+  keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
+  df   <- tse_l6_Nsub[keep, , drop = FALSE]
+  
+  # standardize response and predictor inside the subset
+  df$y <- df$STAI.s_sc_res
+  df$x <- scale(df[[feature]])[,1]
+
+  model <- lmrob(y ~ x + HEI_cluster_2, data = df, control = ctrl)
+
+  lmrob_l6.hei[[feature]] <- list(model = model, N = sum(keep))
+}
+
+
+# extract models
+lmrob_l6.hei_models <- lapply(lmrob_l6.hei, function(x) x$model)
+
+# table
+lmrob_l6.hei_df <- lmrob_table(lmrob_l6.hei_models, length(feats_l6))
+lmrob_l6.hei_df <- lmrob_l6.hei_df %>% as.data.frame() %>% rownames_to_column("Feature")
+
+# extract Ns
+Ns <- sapply(lmrob_l6.hei, function(x) x$N) %>% as.data.frame() %>% rownames_to_column("Feature")
+colnames(Ns)[2] <- "N"
+
+# merge 
+lmrob_l6.hei_df <- left_join(lmrob_l6.hei_df, Ns, by = "Feature")
+
+# rownames
+rownames(lmrob_l6.hei_df) <- lmrob_l6.hei_df$Feature
+rownames(lmrob_l6.hei_df)<- gsub("[._]", " ", rownames(lmrob_l6.hei_df))
+
+lmrob_l6.hei_df <- lmrob_l6.hei_df[, -1]
+
+# save excel
+write.xlsx(lmrob_l6.hei_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6.hei_cont.xlsx", rowNames = T)
+
+```
+
+
+```{r - define l6 model q > 0.2}
+
+v1 <- as.vector(which(lmrob_l6_df$qval < 0.2))
+l6_q02 <- rownames(lmrob_l6_df)[v1]
+
+```
+
+
+# visualize
+
+```{r - distr plots by anx scores }
+
+########## tse_l6_Nsub
+# improve names
+colnames(tse_l6_Nsub)[2:82] <- gsub("[._]", " ", colnames(tse_l6_Nsub)[2:82])
+
+# subset df
+df <- tse_l6_Nsub %>%
+  dplyr::select(c("ID", l6_q02, "HEI_cluster_2", "STAI.s_sc_res"))
+
+# df long
+df_long <- df %>%
+  pivot_longer(
+    cols = l6_q02,
+    names_to = "Specie",
+    values_to = "Clr-abundance"
+  )
+
+# set factors 
+df_long$Specie <- factor(df_long$Specie)
+
+########## N df for subtitle mapping
+N <- lmrob_l6_q02[, c("Feature", "N")]
+# factorize to make sure features are mapped
+colnames(N)[1] <- "Specie"
+
+# fix name
+N$Specie <- gsub("[._]", " ", N$Specie )
+N$Specie <- factor(N$Specie, levels = levels(df_long$Specie))
+
+# attach p and q
+colnames(lmrob_l6_q02)[1] <- "Specie"
+# join
+N <- left_join(N, lmrob_l6_q02[c("Specie", "pval", "qval")], by = "Specie")
+
+
+########## tse_count
+colnames(tse_count)[2:83] <- gsub("[._]", " ",colnames(tse_count)[2:83])
+
+df_count <- tse_count %>%
+  dplyr::select(c("ID", l6_q02))
+
+df_count_long <- df_count %>%
+  pivot_longer(
+    cols = l6_q02,
+    names_to = "Specie",
+    values_to = "count"
+  )
+
+# merge 
+df_long <- left_join(df_long, df_count_long, by = c("ID", "Specie"))
+
+  
+p <- df_long %>% filter(`count` > 0) %>%
+  ggplot(aes(x = "", y = `Clr-abundance`)) +
+  geom_violin(fill = "lightblue", alpha = 0.4, color = NA, trim = FALSE) +
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  geom_beeswarm(aes(color = STAI.s_sc_res), alpha = 0.6, size = 3, cex = 3) +
+  scale_color_viridis_c(
+    name   = "Residualised STAI-s",
+    option = "inferno" ) + 
+  facet_wrap(~ `Specie`, scales = "free_y") + 
+  theme_minimal() +
+  labs(
+      x = NULL,
+      y = "Clr-abundance"
+    ) +
+    theme(
+      strip.text = element_text(size = 15, face = "bold"),
+      axis.text.x = element_blank(),        
+      axis.ticks.x = element_blank(),
+      axis.title.y = element_text(size = 15, face = "bold"), 
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 11)
+    )  +
+  geom_text(
+    data = N,
+    aes(x = "", y = Inf, label = paste0("n = ", N, "; ", "p = ", signif(pval, 2), "; ", "q = ", signif(qval, 2))),
+    vjust = 1.1, # nudge a bit from the top
+    size = 4, 
+    inherit.aes = FALSE
+  )
+
+  
+# save
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/distr_anx_l6_con.png", bg = "white", plot = p, width = 12, height = 9, dpi = 300) 
+  
+    
+    
+```
+
+
+```{r - scatterplots}
+
+
+# plot
+p2 <- df_long %>% filter(`count` > 0) %>%
+  ggplot(aes(x = `Clr-abundance`, y = `STAI.s_sc_res`, color = HEI_cluster_2)) +
+      geom_rug(sides = "b") +
+  geom_point() +
+  scale_color_manual(
+    name = "HEI cluster",
+    values = c("1" = "#1b9e77", "2" = "#d95f02")) +
+      geom_smooth(method = lmrob, colour = "black") +
+      labs(
+        x = "Clr-abundance",
+        y = "Residualised STAI-s"
+      ) +
+  facet_wrap(~ `Specie`, scales = "free_x") +
+  theme_minimal()
+
+
+# annotation
+ann <- lmrob_l6_df[1:9, ] %>%
+   transmute(
+    label = sprintf(
+      "β = %.2f, R² = %.2f, p = %.3f, q = %.3f",
+      std_beta,
+      adj_r_squared,
+      pval,
+      qval
+    )
+  )
+
+ann <- rownames_to_column(ann, "Specie")
+
+# map
+p2.2 <- p2 + geom_text(
+  data = ann,
+  aes(x = -Inf, y = Inf, label = label),
+  hjust = -0.01, vjust = 1.2, size = 4,
+  inherit.aes = F
+) +
+  theme(
+    strip.text = element_text(size = 15, face = "bold"),
+    axis.title = element_text(size = 15, face = "bold"),
+    legend.title = element_text(size = 12),
+      legend.text = element_text(size = 11)
+  )
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/scatterplot_l6_con.png", bg = "white", plot = p2.2, width = 12, height = 9, dpi = 300) 
+
+
+```
+
+
+# diagnostics 
+
+```{r - hatvalues }
+
+# indicates how much an observation influences the prediction of the dependent variable.
+# a cut off point for hat values is usually twice (or three times) the avg hat value. observations exceeding that are considered high leverage
+# avg hat value = p+1 / n 
+
+# drafter the below function by myself, AI fixed and debugged
+names(lmrob_l6_models) <- gsub("[._]", " ",names(lmrob_l6_models))
+lmrob_l6_models_sub <- lmrob_l6_models[names(lmrob_l6_models) %in% l6_q02]
+
+hv_plot_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
+  model_entry <- lmrob_l6_models_sub[[i]]
+  feature_name <- names(lmrob_l6_models_sub)[i]
+  
+  
+  # Compute hat‐values and build a data.frame with row indices
+  h <- hatvalues(model_entry)
+  h_df <- data.frame(
+    index = seq_len(length(h)),
+    hv    = h
+  )
+  
+  # Compute p, n, and the 3× mean‐hat cutoff - use data from the model fed in the loop
+  p <- length(coef(model_entry))      # number of parameters (intercept + slopes)
+  n <- nobs(model_entry)              # number of observations used in that fit
+  avg_hat <- p / n                # mean leverage
+  cutoff  <- 3 * avg_hat          # 3× mean
+  
+  # Build the ggplot for this feature
+  ggplot(h_df, aes(x = hv)) +
+    geom_density() +
+    geom_rug(sides = "b", alpha = 0.3) + # add ticks at the bottom
+    geom_text_repel(                     # place labels to..
+      data = subset(h_df, hv > cutoff),  # .. hv > cutoff
+      aes(x = hv, y = 0, label = index), # where x is, y = 0, label it with index
+      nudge_y      = 7.5,               # not overlapping the x axis
+      direction    = "x",
+      segment.size = 0.01                # segment to the point
+    ) +
+    geom_vline(xintercept = cutoff, # draw a line where the cutoff sits
+               linetype = "dashed",
+               color    = "red") +
+    theme_minimal() +
+    labs(
+      x     = "Hat value",
+      y     = "Density",
+      title = paste0(feature_name)) +
+  theme(
+    plot.title = element_text(size = 15, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
+})
+
+
+lmrob_l6_hv <- wrap_plots(hv_plot_list, axis_titles = "collect")
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_hv.png", bg = "white", plot = lmrob_l6_hv, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r - hat values vs weights }
+
+# plot
+hw_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
+  
+  model_entry <- lmrob_l6_models_sub[[i]]
+  feature_name <- names(lmrob_l6_models_sub)[i]
+  
+  # extract fitted and residuals
+  hat <- hatvalues(model_entry)
+  rweights <- model_entry$rweights
+  
+  # create df
+  hw_df <- data.frame(
+    index = seq_len(length(hat)),
+    hat_value = hat,
+    weight = rweights
+  )
+  
+  p <- length(coef(model_entry))      # number of parameters (intercept + slopes)
+  n <- nobs(model_entry)              # number of observations used in that fit
+  avg_hat <- p / n                # mean leverage
+  cutoff  <- 3 * avg_hat   
+  
+  # plot
+  ggplot(hw_df, aes(x = weight, y = hat_value)) +
+    geom_point(size = 1.5) +
+     theme_minimal() +
+     geom_text_repel(                     # place labels to..
+      data = subset(hw_df, hat_value > cutoff),  # .. hv > cutoff
+      aes(x = weight, y = hat_value, label = index), # where x is, y = 0, label it with index
+      nudge_y      = 0.01,               # not overlapping the x axis
+      direction    = "y",
+      size = 5,
+      min.segment.length = 0.3
+    ) +
+    geom_hline(yintercept = cutoff, # draw a line where the cutoff sits
+               linetype = "dashed",
+               color    = "red") +
+    labs(
+      x     = "Weight",
+      y     = "Hat value",
+      title = paste0(feature_name))  +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(face = "bold"))
+  
+})
+
+lmrob_l6_hw <- wrap_plots(hw_list, axis_titles = "collect")
+lmrob_l6_hw
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_hw.png", bg = "white", plot = lmrob_l6_hw, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r - res values vs weights }
+
+# plot
+resw_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
+  
+  model_entry <- lmrob_l6_models_sub[[i]]
+  feature_name <- names(lmrob_l6_models_sub)[i]
+  
+  # extract fitted and residuals
+  hat <-hatvalues(model_entry)
+  res <- model_entry$residuals
+  sigma <- model_entry$scale
+  res_std <- res / (sigma * sqrt(pmax(1e-8, 1 - hat))) # std residuals
+  rweights <- model_entry$rweights
+  
+  # create df
+  df <- data.frame(
+    index = seq_len(length(res)),
+    res_std = res_std,
+    weight = rweights
+  )
+  
+  # plot
+  ggplot(df, aes(x = weight, y = res_std)) +
+    geom_point(size = 1.5) +
+     theme_minimal() +
+     geom_text_repel(                     # place labels to..
+      data = subset(df, abs(res_std) > 2),  # .. hv > cutoff
+      aes(x = weight, y = res_std, label = index), # where x is, y = 0, label it with index
+      nudge_y      = 0.01,               # not overlapping the x axis
+      direction    = "y",
+      min.segment.length = 0.3,
+      size = 5
+    ) +
+    geom_hline(yintercept = c(-2,2), # draw a line where the cutoff sits
+               linetype = "dashed",
+               color    = "red") +
+    labs(
+      x     = "Weight",
+      y     = "Std residuals",
+      title = paste0(feature_name))  +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(face = "bold"))
+  
+})
+
+lmrob_l6_resw <- wrap_plots(resw_list, axis_titles = "collect")
+lmrob_l6_resw
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_resw.png", bg = "white", plot = lmrob_l6_resw, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r hat versus res }
+
+# plot
+hat_res_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
+  
+  model_entry <- lmrob_l6_models_sub[[i]]
+  feature_name <- names(lmrob_l6_models_sub)[i]
+  
+  # extract hat and residuals
+  hat <- hatvalues(model_entry)
+  res <- model_entry$residuals
+  sigma <- model_entry$scale
+  res_std <- res / (sigma * sqrt(pmax(1e-8, 1 - hat))) # std residuals
+  
+  # extract leverage
+  p <- length(coef(model_entry))      
+  n <- nobs(model_entry)             
+  avg_hat <- p / n                
+  cutoff  <- 3 * avg_hat
+  
+  # create table
+  df <- data.frame(
+    index = seq_len(length(hat)),
+    hat_value = hat,
+    res_std = res_std
+    )
+  
+  ggplot(df, aes(x = res_std, y = hat_value)) +
+    geom_point(size = 1.5) +
+     theme_minimal() +
+     geom_text_repel(                    
+      data = subset(df, hat_value > cutoff & abs(res_std) > 2),  
+      aes(x = res_std, y = hat_value, label = index),
+      nudge_y      = 0.01,               
+      direction    = "y",
+      min.segment.length = 0.3,
+      size = 5,
+      inherit.aes = FALSE
+    ) +
+    geom_vline(xintercept = c(-2,2), linetype = "dashed", color = "red") +
+    geom_hline(yintercept = cutoff, linetype = "dashed", color = "red") +
+  labs(x = "Std Residuals", y = "Hat value") +
+    labs(
+      x     = "Std residuals",
+      y     = "hat values",
+      title = paste0(feature_name))  +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(face = "bold"))
+  
+})
+
+
+lmrob_l6_har_res <- wrap_plots(hat_res_list, axis_titles = "collect")
+lmrob_l6_har_res
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_har_res.png", bg = "white", plot = lmrob_l6_har_res, width = 10, height = 6, dpi = 300)
+
+```
+
+
+
+########################################################## GBMs 
+
+# run models 
+
+```{r GBMs model }
+
+### 1. subset based on N > 20 & preprocess
+sum(rowData(tse_gbm)$N_presence < 20) # include all
+df_gbm <- assay(tse_gbm, "clr")
+
+# define l6 feats
+feats_gbm <- rownames(df_gbm)
+
+# make names 
+feats_gbm <- make.names(feats_gbm)
+rownames(df_gbm) <- make.names(rownames(df_gbm))
+
+# preprocess 
+df_gbm <- df_gbm %>% t() %>% as.data.frame() %>% rownames_to_column("ID") %>% left_join(metadata_t1[, c("ID", "HEI_cluster_2", "STAI.s_sc_res")], by = "ID")
+
+# 2. zero df based on count
+tse_count <- tse_gbm[rowData(tse_gbm)$N_presence >= 20]
+rownames(tse_count) <-make.names(rownames(tse_count))
+tse_count <- assay(tse_count) %>% t() %>% as.data.frame() %>% rownames_to_column("ID")
+
+identical(rownames(df_gbm), rownames(tse_count))
+
+
+### 2. apply lmrob through each feature including only IDs with feature > 0 
+
+# initialize
+lmrob_gbm <- setNames(vector("list", length(feats_gbm)), feats_gbm)
+
+stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
+
+# loop
+for (feature in feats_gbm) {
+  keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
+  df   <- df_gbm[keep, , drop = FALSE]
+  
+  # standardize response and predictor inside the subset
+  df$y <- df$STAI.s_sc_res
+  df$x <- scale(df[[feature]])[,1]
+
+  model <- lmrob(y ~ x, data = df, control = ctrl)
+
+  lmrob_gbm[[feature]] <- list(model = model, N = sum(keep))
+}
+
+# extract models
+lmrob_gbm_models <- lapply(lmrob_gbm, function(x) x$model)
+
+### 3. table
+lmrob_gbm_df <- lmrob_table(lmrob_gbm_models, length(feats_gbm))
+lmrob_gbm_df <- lmrob_gbm_df %>% as.data.frame() %>% rownames_to_column("Feature")
+
+# extract Ns
+Ns <- sapply(lmrob_gbm, function(x) x$N) %>% as.data.frame() %>% rownames_to_column("Feature")
+colnames(Ns)[2] <- "N"
+
+# merge 
+lmrob_gbm_df <- left_join(lmrob_gbm_df, Ns, by = "Feature")
+
+# rownames
+rownames(lmrob_gbm_df) <- lmrob_gbm_df$Feature
+rownames(lmrob_gbm_df)<- gsub("[._]", " ", rownames(lmrob_gbm_df))
+
+lmrob_gbm_df <- lmrob_gbm_df[, -1]
+
+# save excel
+write.xlsx(lmrob_gbm_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_gbm_cont.xlsx", rowNames = T)
+
+```
+
+```{r gbm ~ hei_cluster_2 }
+
+
+lmrob_gbm <- setNames(vector("list", length(feats_gbm)), feats_gbm)
+
+stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
+
+# loop
+for (feature in feats_gbm) {
+  keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
+  df   <- df_gbm[keep, , drop = FALSE]
+  
+  # standardize response and predictor inside the subset
+  df$x <- df$HEI_cluster_2
+  df$y <- scale(df[[feature]])[,1]
+
+  model <- lmrob(y ~ x, data = df, control = ctrl)
+
+  lmrob_gbm[[feature]] <- list(model = model, N = sum(keep))
+}
+
+# extract models
+lmrob_gbm_models <- lapply(lmrob_gbm, function(x) x$model)
+
+### 3. table
+lmrob_gbm_df <- lmrob_table(lmrob_gbm_models, length(feats_gbm))
+lmrob_gbm_df <- lmrob_gbm_df %>% as.data.frame() %>% rownames_to_column("Feature")
+
+# extract Ns
+Ns <- sapply(lmrob_gbm, function(x) x$N) %>% as.data.frame() %>% rownames_to_column("Feature")
+colnames(Ns)[2] <- "N"
+
+# merge 
+lmrob_gbm_df <- left_join(lmrob_gbm_df, Ns, by = "Feature")
+
+# rownames
+rownames(lmrob_gbm_df) <- lmrob_gbm_df$Feature
+rownames(lmrob_gbm_df)<- gsub("[._]", " ", rownames(lmrob_gbm_df))
+
+lmrob_gbm_df <- lmrob_gbm_df[, -1]
+
+```
+
+
+```{r}
+
+# save rds
+saveRDS(df_gbm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_gbm.rds")
+saveRDS(tse_count, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm_count.rds")
+
+```
+
+
+```{r GBMs + HEI }
+
+# initialize
+lmrob_gbm.hei <- setNames(vector("list", length(feats_gbm)), feats_gbm)
+
+stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
+
+# loop
+for (feature in feats_gbm) {
+  keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
+  df   <- df_gbm[keep, , drop = FALSE]
+  
+  # standardize response and predictor inside the subset
+  df$y <- df$STAI.s_sc_res
+  df$x <- scale(df[[feature]])[,1]
+
+  model <- lmrob(y ~ x + HEI_cluster_2, data = df, control = ctrl)
+
+  lmrob_gbm.hei[[feature]] <- list(model = model, N = sum(keep))
+}
+
+# extract models
+lmrob_gbm.hei_models <- lapply(lmrob_gbm.hei, function(x) x$model)
+
+### 3. table
+lmrob_gbm.hei_df <- lmrob_table(lmrob_gbm.hei_models, length(feats_gbm))
+lmrob_gbm.hei_df <- lmrob_gbm.hei_df %>% as.data.frame() %>% rownames_to_column("Feature")
+
+# extract Ns
+Ns <- sapply(lmrob_gbm.hei, function(x) x$N) %>% as.data.frame() %>% rownames_to_column("Feature")
+colnames(Ns)[2] <- "N"
+
+# merge 
+lmrob_gbm.hei_df <- left_join(lmrob_gbm.hei_df, Ns, by = "Feature")
+
+# rownames
+rownames(lmrob_gbm.hei_df) <- lmrob_gbm.hei_df$Feature
+rownames(lmrob_gbm.hei_df)<- gsub("[._]", " ", rownames(lmrob_gbm.hei_df))
+
+lmrob_gbm.hei_df <- lmrob_gbm.hei_df[, -1]
+
+# save excel
+write.xlsx(lmrob_gbm.hei_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_gbm.hei_cont.xlsx", rowNames = T)
+
+```
+
+
+```{r }
+
+v1 <- as.vector(which(lmrob_gbm_df$qval < 0.2)) # index l6.hei hits based on p
+gbm_q02 <- rownames(lmrob_gbm_df)[v1]
+
+gbm_q02 <- trimws(sub("^MGB\\d+\\.*", "", gbm_q02))
+
+# subset df
+lmrob_gbm_q02 <- lmrob_gbm_df[rownames(lmrob_gbm.hei_df)[v1], ] %>% rownames_to_column("Feature")
+lmrob_gbm_q02$Feature <- trimws(gsub("\\.+", " ",
+                  sub("^\\s*MGB\\d+[.\\s]*", "", lmrob_gbm_q02$Feature)))
+
+```
+
+```{r - distr plots by anx scores }
+
+########### df_gbm
+# improve names
+colnames(df_gbm)[2:35] <- trimws(gsub("\\.+", " ",
+                  sub("^\\s*MGB\\d+[.\\s]*", "", colnames(df_gbm)[2:35])))
+
+# subset df
+df <- df_gbm %>%
+  dplyr::select(c("ID", gbm_q02, "HEI_cluster_2", "STAI.s_sc_res"))
+
+# df long
+df_long <- df %>%
+  pivot_longer(
+    cols = gbm_q02,
+    names_to = "GBM",
+    values_to = "Clr-abundance"
+  )
+
+# set factors 
+df_long$GBM <- factor(df_long$GBM)
+
+############# N df for subtitle mapping
+N <- lmrob_gbm_q02[, c("Feature", "N")]
+# factorize to make sure features are mapped
+colnames(N)[1] <- "GBM"
+
+# fix name
+N$GBM <- trimws(sub("^MGB\\d+\\.*", "", N$GBM))
+N$GBM <- factor(N$GBM, levels = levels(df_long$GBM))
+
+colnames(lmrob_gbm_q02)[1] <- "GBM"
+N <- left_join(N, lmrob_gbm_q02[, c("GBM", "pval", "qval")], by = "GBM")
+
+########## tse_count
+colnames(tse_count)[2:35] <- trimws(gsub("\\.+", " ",
+                  sub("^\\s*MGB\\d+[.\\s]*", "", colnames(df_gbm)[2:35])))
+
+df_count <- tse_count %>%
+  dplyr::select(c("ID", gbm_q02))
+
+df_count_long <- df_count %>%
+  pivot_longer(
+    cols = gbm_q02,
+    names_to = "GBM",
+    values_to = "count"
+  )
+
+# merge 
+df_long <- left_join(df_long, df_count_long, by = c("ID", "GBM"))
+
+  
+p <- df_long %>% filter(`count` > 0) %>%
+  ggplot(aes(x = "", y = `Clr-abundance`)) +
+  geom_violin(fill = "lightblue", alpha = 0.4, color = NA, trim = FALSE) +
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  geom_beeswarm(aes(color = STAI.s_sc_res), alpha = 0.6, size = 3, cex = 3) +
+  scale_color_viridis_c(
+    name   = "Residualised STAI-s",
+    option = "inferno" ) + 
+  facet_wrap(~ `GBM`, scales = "free_y") + 
+  theme_minimal() +
+  labs(
+      x = NULL,
+      y = "Clr abudance"
+    ) +
+    theme_minimal() + 
+  theme(
+      strip.text = element_text(size = 15, face = "bold"),
+      axis.text.x = element_blank(),        
+      axis.ticks.x = element_blank(),
+      axis.title.y = element_text(size = 15, face = "bold"), 
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 11)
+    )  +
+  geom_text(
+    data = N,
+    aes(x = 1, y = Inf, label = paste0("n = ", N, "; ", "p = ", signif(pval, 2), "; ", "q = ", signif(qval, 2))),
+    size = 4,
+    vjust = 1.1,            # nudge a bit from the top
+    inherit.aes = FALSE
+  )
+
+  
+# save
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/distr_anx_gbm_con.png", bg = "white", plot = p, width = 8, height = 6, dpi = 300) 
+  
+```
+
+```{r - scatterplots }
+
+# plot
+p2 <- df_long %>% filter(`count` > 0) %>%
+  ggplot(aes(x = `Clr-abundance`, y = `STAI.s_sc_res`, color = HEI_cluster_2)) +
+      geom_rug(sides = "b") +
+  scale_color_manual(
+    name = "HEI cluster",
+    values = c("1" = "#1b9e77", "2" = "#d95f02")) +
+  geom_point() +
+      geom_smooth(method = lmrob, colour = "black") +
+      labs(
+        x = "Clr-abundance",
+        y = "Residualised STAI-s"
+      ) +
+  facet_wrap(~ `GBM`, scales = "free_x") +
+  theme_minimal()
+
+
+# annotation
+
+rownames(lmrob_gbm_df) <- trimws(sub("^MGB\\d+\\.*", "",rownames(lmrob_gbm_df)))
+
+ann <- lmrob_gbm_df[1:2, ] %>%
+   transmute(
+    label = sprintf(
+      "β = %.2f, R² = %.2f, p = %.3f, q = %.3f",
+      std_beta,
+      adj_r_squared,
+      pval,
+      qval
+    )
+  )
+
+ann <- rownames_to_column(ann, "GBM")
+
+# map
+p2.2 <- p2 + geom_text(
+  data = ann,
+  aes(x = -Inf, y = Inf, label = label),
+  hjust = -0.01, vjust = 1.2, size = 4,
+  inherit.aes = F
+) +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(face = "bold"))
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/scatterplot_gbm_con.png", bg = "white", plot = p2.2, width = 8, height = 4, dpi = 300)
+
+
+
+```
+
+
+
+
+########################################################## FB RATIO
+
+```{r}
+
+# extract 
+relab_l1 <- assay(altExp(tse_taxa, "phylum_l1"), "relabundance") %>% t() %>% as.data.frame
+# calculate
+relab_l1 <- relab_l1 %>%
+  mutate(
+    FB_ratio = (Firmicutes_A + Firmicutes_C + Firmicutes)/ Bacteroidota,
+    FB_ratio_sc = scale(FB_ratio)
+  )
+# attach
+colData(altExp(tse_taxa, "phylum_l1"))$FB_ratio_sc  <- relab_l1$FB_ratio_sc
+
+# test
+lmrob_FB <- lmrob(
+    STAI.s_sc_res ~ FB_ratio_sc + HEI_cluster_2,
+    data = colData(altExp(tse_taxa, "phylum_l1")),
+    control =  ctrl
+  )
+
+
+summary(lmrob_FB)
+
+```
+
+```{r}
+
+saveRDS(tse_taxa, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
+
+```
+
+
+
+
+
+

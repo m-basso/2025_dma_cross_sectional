@@ -1,0 +1,233 @@
+---
+title: "Gm - Anxiety binary models"
+output: html_notebook
+---
+
+```{r}
+library(e1071)
+library(tidyr)
+library(ggplot2)
+library(ggbeeswarm)
+library(mia)
+library(mblm)
+library(dplyr)
+library(knitr)
+library(robustbase)
+library(openxlsx)
+library(tibble)
+
+```
+
+```{r - upload dependencies }
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data//Workspace.1/Scripts/Gm_utils.R")
+source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
+
+```
+
+```{r - upload data }
+tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
+tse_taxa_sub30 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_sub30.rds")
+metadata_t1<- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+alpha_df <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df.rds")
+
+```
+
+
+# res STAI ~ l6 [0-1]
+# res STAI ~ l6 [0-1] + HEI
+
+```{r - CTRL }
+
+# set control parameters for the S- and M- steps
+
+ctrl <- lmrob.control(
+  setting = "KS2014",
+  maxit.scale = 500, 
+  k.max      = 2000, 
+  max.it     = 1000)
+
+```
+
+
+```{r - lmrob l6 }
+
+# extract l6 df and be sure cols are factor 
+df2 <- assay(tse_taxa_sub30, "binarized") %>% t() %>% as.data.frame()
+df2 <- df2 %>% mutate(across(everything(), ~ as.factor(.))) %>% rownames_to_column("ID")
+
+# define IVs
+l6_feats <- colnames(df2)[-1]
+
+# metadata
+df <- colData(tse_taxa_sub30) %>% as.data.frame()
+
+# join
+df3 <- dplyr::left_join(df2, df[, c("ID", "HEI_cluster_2", "STAI.s_sc_res")], by = "ID")
+
+# run
+lmrob_l6 <- apply(df3[, l6_feats], 2, function(x) lmrob(
+    STAI.s_sc_res ~ x,
+    data = df3,
+    control = ctrl
+  )
+)
+
+# table
+lmrob_l6_df <- lmrob_table(lmrob_l6, length(lmrob_l6))
+
+# friendly names
+rownames(lmrob_l6_df) <-  gsub("[._]", " ", rownames(lmrob_l6_df))
+
+# excel
+write.xlsx(lmrob_l6_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6.xlsx", rowNames = T)
+
+```
+
+```{r - lmrob l6 + HEI }
+
+# run
+lmrob_l6.hei <- apply(df3[, l6_feats], 2, function(x) lmrob(
+    STAI.s_sc_res ~ x + HEI_cluster_2,
+    data = df3,
+    control = ctrl
+  )
+)
+
+# table
+lmrob_l6.hei_df <- lmrob_table(lmrob_l6.hei, length(lmrob_l6.hei))
+
+# friendly names
+rownames(lmrob_l6.hei_df) <-  gsub("[._]", " ", rownames(lmrob_l6.hei_df))
+
+# excel
+write.xlsx(lmrob_l6.hei_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6.hei.xlsx", rowNames = T)
+
+```
+
+```{r - plot model l6 q < 0.2 }
+
+v1 <- as.vector(which(lmrob_l6_df$qval < 0.2))
+l6_q02 <- rownames(lmrob_l6_df)[v1]
+
+```
+
+```{r - visualize coeff, CIs, annotate prev }
+
+# subset df
+lmrob_l6_q02 <- lmrob_l6_df[rownames(lmrob_l6_df)[v1], ] %>% rownames_to_column("Feature")
+
+
+# get prevalence
+rowData(tse_taxa)$Prevalence <- getPrevalence(tse_taxa, rank = "Specie", detection = 0, as.relative = T)
+
+# extract and fix names
+prev <- rowData(tse_taxa)$Prevalence
+names(prev) <- gsub("[._]", " ", names(prev))
+
+# extract prev df 
+prev_subset <- prev[names(prev) %in% l6_q02 ] %>% as.data.frame() %>% rownames_to_column("Feature")
+colnames(prev_subset)[2] <- "Prevalence"
+
+# merge
+lmrob_l6_q02 <- dplyr::left_join(lmrob_l6_q02, prev_subset, by = "Feature")
+lmrob_l6_q02$Prevalence <- round(lmrob_l6_q02$Prevalence, digits = 2)
+
+# max ci value for annotation
+max_x <- max(lmrob_l6_q02$ci_upper, na.rm = TRUE)
+
+# plot
+p1 <- ggplot(lmrob_l6_q02, aes(y = reorder(Feature, std_beta), x = std_beta)) +
+  geom_point(aes(color = std_beta > 0), size = 3) +
+  geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper), height = 0.2) +
+  geom_text(aes(x = max_x + 0.5, label = paste0("Prev: ",Prevalence)),   # fixed x position
+            hjust = 0.3, size = 4) +
+  geom_vline(xintercept = 0, color = "gray") +
+  scale_x_continuous(expand = expansion(mult = c(0.05, 0.2))) +
+  labs(
+    y = NULL,
+    x = "Standardized beta coefficient",
+    legend = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 15, face = "bold"),
+    axis.text.x = element_text(size = 12),
+    axis.title = element_text(size = 15, face = "bold"),
+    legend.position = "none")
+  
+
+# save
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_binary.png", bg = "white", plot = p1, width = 10, height = 7, dpi = 300)
+
+
+```
+
+```{r - visualize N by absence/presence and anx cateogry / scores }
+
+df4 <- dplyr::left_join(df3, in24_merged_VIF[, c("ID", "STAI_s_cat.binary")], by = "ID") 
+
+colnames(df4)[2:158] <- gsub("[._]", " ", colnames(df4)[2:158])
+
+df4 <- df4 %>%
+  dplyr::select(c("ID", all_of(l6_q02), "HEI_cluster_2", "STAI_s_cat.binary", "STAI.s_sc_res"))
+
+df_long <- df4 %>%
+  pivot_longer(
+    cols = all_of(l6_q02),
+    names_to = "Specie",
+    values_to = "Presence"
+  ) %>% 
+  mutate( Presence = factor(ifelse(Presence > 0, "Present", "Absent"),
+                           levels = c("Absent", "Present")))
+
+
+
+# q val for annotation
+res <- lmrob_l6_q02[, c("Feature", "pval", "qval")]
+colnames(res)[1] <- "Specie"
+
+# scores
+p3 <- ggplot(df_long, aes(x = Presence, y = STAI.s_sc_res)) +
+  geom_violin(fill = "lightblue", alpha = 0.5, color = NA, trim = FALSE) +
+  geom_boxplot(width = 0.1) +
+  geom_beeswarm(aes(color = HEI_cluster_2), alpha = 0.6, size = 3, cex = 3) +
+  scale_color_manual(
+    name = "HEI cluster",
+    values = c("1" = "#1b9e77", "2" = "#d95f02")) +
+  facet_wrap(~ Specie, scales = "free_x") +
+  labs(
+    x = "Specie presence",
+    y = "Residualized STAI-s"
+  ) +
+  theme_minimal() +
+    theme(
+      strip.text = element_text(size = 15, face = "bold"),
+      axis.title = element_text(size = 15, face = "bold"),
+      axis.text = element_text(size = 12, face = "bold"),
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 11)
+    ) + 
+  geom_text(
+    data = res,
+    aes(x = 1.5, y = Inf, label = paste0("p = ", signif(pval, 2), "; ", "q = ", signif(qval, 3))), vjust = 1, size = 4,
+    inherit.aes = FALSE
+  ) 
+  
+
+ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/plot_binary.STAIscores.png", bg = "white", plot = p3
+       , width = 10, height = 7, dpi = 300)
+
+```
+
+```{r - re-write tse_taxa }
+
+saveRDS(df3, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_binary.rds")
+
+```
+
+
+
+
+
+
