@@ -15,18 +15,19 @@ library(mgcv)
 library(gratia)
 library(tibble)
 library(kableExtra)
+library(here)
 
 ```
 
 ```{r - upload dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data//Workspace.1/Scripts/Gm_utils.R")
+source(here("Scripts/Gm_utils.R"))
 
 ```
 
 ```{r - upload data }
-tse_taxa_ab20 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_ab20.rds")
-metadata_t1<- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
-tse_gbm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds")
+tse_taxa_ab20 <- readRDS(here("Data/Processed/tse_taxa_ab20.rds"))
+metadata_t1<- readRDS(here("Data/Processed/metadata_t1.rds"))
+tse_gbm <- readRDS(here("Data/Processed/tse_gbm.rds"))
 
 ```
 
@@ -156,27 +157,41 @@ gam_adj <- gam(
 
 
 p <- draw(gam_adj, select = 1) +
-    labs(x = "Inositol synthesis (Clr- abundance)", y = "Residualsed STAI-s", title = NULL) +
+    labs(x = "Clr- abundance", y = "Residualsed STAI-s", title = "Inositol synthesis") +
     geom_point(
       data = df_gbm,
       aes(x = !!sym("MGB037...Inositol.synthesis"), y = STAI.s_sc_res, color = HEI_cluster_2),
       inherit.aes = FALSE,
-      alpha = 0.6,
-      size = 2, cex = 3
+      alpha = 0.7,
+      size = 4, cex = 3
     ) +
+  geom_rug(
+    data = df_gbm,
+    aes(x = !!sym("MGB037...Inositol.synthesis"), color = HEI_cluster_2),
+    sides = "b", # bottom rug
+    inherit.aes = FALSE,
+    alpha = 0.8
+  ) +
   scale_color_manual(
     name = "HEI cluster",
     values = c("1" = "#1b9e77", "2" = "#d95f02")) +
-    theme_classic() +
-    theme(
-      axis.title = element_text(size = 15, face = "bold"),
-      axis.text = element_text(size = 12, face = "bold"),
-      legend.title = element_text(size = 12),
-      legend.text = element_text(size = 11)
+    theme_minimal() +
+  annotate(
+    "text",
+    x = Inf, y = Inf, 
+    label = "edf = 2.85, R² = 0.29, p = 0.000, q = 0.000",
+    hjust = 1.3, vjust = 1.5, size = 7
+  ) +
+ theme(
+      axis.title = element_text(size = 18, face = "bold"),
+      axis.text = element_text(size = 13, face = "bold"),
+      plot.title = element_text(size = 19, face = "bold",  hjust = 0.5),
+      legend.title = element_text(size = 13, face = "bold"),
+      legend.text = element_text(size = 12)
     ) 
 
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/plot_inositol.png", bg = "white", plot = p
+ggsave(here("Plots/plot_inositol.png"), bg = "white", plot = p
        , width = 10, height = 7, dpi = 300)
 
 ```
