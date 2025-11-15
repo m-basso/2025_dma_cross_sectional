@@ -14,20 +14,21 @@ library(openxlsx)
 library(kableExtra)
 library(robustbase)
 library(tibble)
+library(here)
 
 ```
 
 ```{r - upload dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data//Workspace.1/Scripts/Gm_utils.R")
+source(here("Scripts/Gm_utils.R"))
 
 ```
 
 ```{r - upload data }
-tse_taxa_ab20 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_ab20.rds")
-metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
-tse_gbm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds")
-alpha_df <- readRDS( "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df.rds")
-alpha_df_ko <- readRDS( "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df_ko.rds")
+tse_taxa_ab20 <- readRDS(here("Data/Processed/tse_taxa_ab20.rds"))
+metadata_t1 <- readRDS(here("Data/Processed/metadata_t1.rds"))
+tse_gbm <- readRDS(here("Data/Processed/tse_gbm.rds"))
+alpha_df <- readRDS(here("Data/Processed/alpha_df.rds"))
+alpha_df_ko <- readRDS(here("Data/Processed/alpha_df_ko.rds"))
 
 ```
 
@@ -162,6 +163,8 @@ colnames(Ns)[2] <- "N"
 # merge 
 lmrob_l6_df <- left_join(lmrob_l6_df, Ns, by = "Feature")
 
+feats_l6_sg <- lmrob_l6_df$Feature[lmrob_l6_df$qval < 0.2]
+
 # rownames
 rownames(lmrob_l6_df) <- lmrob_l6_df$Feature
 rownames(lmrob_l6_df)<- gsub("[._]", " ", rownames(lmrob_l6_df))
@@ -175,12 +178,12 @@ write.xlsx(lmrob_l6_df, "C:/Users/bm00900/OneDrive - University of Surrey/Deskto
 
 ```{r - l6 ~ HEI cluster models }
 
-lmrob_l6 <- setNames(vector("list", length(feats_l6)), feats_l6)
+lmrob_l6 <- setNames(vector("list", length(feats_l6_sg)), feats_l6_sg)
 
 stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
 
 # loop
-for (feature in feats_l6) {
+for (feature in feats_l6_sg) {
   keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
   df   <- tse_l6_Nsub[keep, , drop = FALSE]
   
@@ -197,7 +200,7 @@ for (feature in feats_l6) {
 lmrob_l6_models <- lapply(lmrob_l6, function(x) x$model)
 
 ### table
-lmrob_l6_df <- lmrob_table(lmrob_l6_models, length(feats_l6))
+lmrob_l6_df <- lmrob_table(lmrob_l6_models, length(feats_l6_sg))
 lmrob_l6_df <- lmrob_l6_df %>% as.data.frame() %>% rownames_to_column("Feature")
 
 # extract Ns
@@ -740,6 +743,8 @@ colnames(Ns)[2] <- "N"
 # merge 
 lmrob_gbm_df <- left_join(lmrob_gbm_df, Ns, by = "Feature")
 
+feats_gbm_sign <- lmrob_gbm_df$Feature[lmrob_gbm_df$qval < 0.2]
+
 # rownames
 rownames(lmrob_gbm_df) <- lmrob_gbm_df$Feature
 rownames(lmrob_gbm_df)<- gsub("[._]", " ", rownames(lmrob_gbm_df))
@@ -754,12 +759,12 @@ write.xlsx(lmrob_gbm_df, "C:/Users/bm00900/OneDrive - University of Surrey/Deskt
 ```{r gbm ~ hei_cluster_2 }
 
 
-lmrob_gbm <- setNames(vector("list", length(feats_gbm)), feats_gbm)
+lmrob_gbm <- setNames(vector("list", length(feats_gbm_sign)), feats_gbm_sign)
 
 stopifnot(identical(tse_l6_Nsub$ID, tse_count$ID))
 
 # loop
-for (feature in feats_gbm) {
+for (feature in feats_gbm_sign) {
   keep <- tse_count[[feature]] > 0  # or >= 0, or add !is.na(...)
   df   <- df_gbm[keep, , drop = FALSE]
   
@@ -776,7 +781,7 @@ for (feature in feats_gbm) {
 lmrob_gbm_models <- lapply(lmrob_gbm, function(x) x$model)
 
 ### 3. table
-lmrob_gbm_df <- lmrob_table(lmrob_gbm_models, length(feats_gbm))
+lmrob_gbm_df <- lmrob_table(lmrob_gbm_models, length(feats_gbm_sign))
 lmrob_gbm_df <- lmrob_gbm_df %>% as.data.frame() %>% rownames_to_column("Feature")
 
 # extract Ns

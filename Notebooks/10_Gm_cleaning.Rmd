@@ -6,6 +6,9 @@ output: html_notebook
 ```{r }
 library(readr)
 library(dplyr)
+library(here)
+library(writexl)
+library(openxlsx)
 
 ```
 
@@ -14,17 +17,11 @@ library(dplyr)
 
 ```{r - upload files }
 # df
-in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
-# taxa, genus 
-gm_taxa_gen_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL5.txt")
+in24_merged_VIF <- readRDS(here("Data/Processed/in24_merged_VIF.rds"))
 # taxa, species 
 gm_taxa_spec_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL6.txt")
 # taxa, phylum 
 gm_taxa_pyl_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL1.txt")
-# taxa, family
-gm_taxa_fam_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL4.txt")
-# taxa, strain
-gm_taxa_str_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL7.txt")
 # KOs
 gm_ko_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_Funct/KGML0.txt")
 
@@ -67,6 +64,8 @@ all(in24_merged_VIF$ID == colnames(gm_taxa_spec_t1))
 # check tot count per pp
 colSums(gm_taxa_spec_t1)
 
+# save for inclusion in supp
+write.xlsx(gm_taxa_spec_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL6.xlsx",  rowNames = TRUE)
 
 ```
 
@@ -183,6 +182,10 @@ all(in24_merged_VIF$ID == colnames(gm_taxa_pyl_t1))
 # check tot count per pp
 colSums(gm_taxa_pyl_t1)
 
+# save for inclusion in supp
+write.xlsx(gm_taxa_pyl_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL1.xlsx", rowNames = TRUE)
+
+
 ```
 
 ```{r - features with tot reads < 0.01% - L1 }
@@ -261,6 +264,8 @@ gm_ko_t1 <- gm_ko_t1[-1, ]
 colSums(gm_ko_t1)
 
 gm_ko_t1.raw <- gm_ko_t1
+
+write.xlsx(gm_ko_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_Funct/KGML0.xlsx", rowNames = TRUE)
 
 ```
 

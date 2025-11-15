@@ -15,21 +15,21 @@ library(knitr)
 library(robustbase)
 library(openxlsx)
 library(tibble)
+library(here)
 
 ```
 
 ```{r - upload dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data//Workspace.1/Scripts/Gm_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
+source(here("Scripts/Gm_utils.R"))
+source(here("Scripts/Distr_visualization_utils.R"))
 
 ```
 
 ```{r - upload data }
-tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
-tse_taxa_sub30 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_sub30.rds")
-metadata_t1<- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
-in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
-alpha_df <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df.rds")
+tse_taxa <- readRDS(here("Data/Processed/tse_taxa.rds"))
+tse_taxa_sub30 <- readRDS(here("Data/Processed/tse_taxa_sub30.rds"))
+metadata_t1<- readRDS(here("Data/Processed/metadata_t1.rds"))
+in24_merged_VIF <- readRDS(here("Data/Processed/in24_merged_VIF.rds"))
 
 ```
 
@@ -80,7 +80,7 @@ lmrob_l6_df <- lmrob_table(lmrob_l6, length(lmrob_l6))
 rownames(lmrob_l6_df) <-  gsub("[._]", " ", rownames(lmrob_l6_df))
 
 # excel
-write.xlsx(lmrob_l6_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6.xlsx", rowNames = T)
+write.xlsx(lmrob_l6_df, here("Excel files/lmrob_l6.xlsx"), rowNames = T)
 
 ```
 
@@ -225,6 +225,21 @@ ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/
 saveRDS(df3, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_binary.rds")
 
 ```
+
+```{r - hei - species linked to anxiety }
+
+df3 <- left_join(df3, metadata_t1[, c("GSRS.tot_scaled", "ID")], by = "ID")
+
+summary(glmrob(df3$`Flavonifractor plautii` ~ HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =df3)) # 0.04 0.055
+summary(glmrob(df3$`Ruminococcus_B gnavus` ~ HEI_cluster_2, family = "binomial", data =df3)) # 0.1 0.299
+summary(glmrob(df3$`Faecalibacterium prausnitzii_J` ~ HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =df3)) # 0.34 0.581
+summary(glmrob(df3$`Faecalibacterium prausnitzii_E` ~ HEI_cluster_2 + GSRS.tot_scaled, family = "binomial", data =df3)) # 0.07 0.068
+
+p.adjust(c(0.040, 0.101, 0.347, 0.072), method = "BH") # all but faec prausnitzii J 0.134
+p.adjust(c(0.055, 0.299, 0.581, 0.068), method = "BH") # Flav and Faec E 0.136
+
+```
+
 
 
 

@@ -11,21 +11,22 @@ library(robustbase)
 library(kableExtra)
 library(purrr)
 library(ComplexHeatmap)
+library(here)
 
 ```
 
 ```{r - upload dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data//Workspace.1/Scripts/Gm_utils.R")
+source(here("Scripts/Gm_utils.R"))
 
 ```
 
 
 ```{r - load data }
-tse_taxa_sub30 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_sub30.rds")
-tse_taxa_ab20 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_ab20.rds")
-tse_gbm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds")
-tse_gbm_count <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm_count.rds")
-tse_l6_count <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_l6_count.rds")
+tse_taxa_sub30 <- readRDS(here("Data/Processed/tse_taxa_sub30.rds"))
+tse_taxa_ab20 <- readRDS(here("Data/Processed/tse_taxa_ab20.rds"))
+tse_gbm <- readRDS(here("Data/Processed/tse_gbm.rds"))
+tse_gbm_count <- readRDS(here("Data/Processed/tse_gbm_count.rds"))
+tse_l6_count <- readRDS(here("Data/Processed/tse_l6_count.rds"))
 
 ```
 
@@ -206,7 +207,7 @@ dimnames(stars_mx) <- dimnames(qval_mx)
 taxa_ann <- data.frame(
   Specie = (rownames(beta_mx)),
   Metadata = c(rep("Binary", 4), rep ("Continuous", 9)),
-  Phylum = c(rep("Firmicutes", 4), rep("Bacteroidota", 4), "Actinobacteria", rep("Firmicutes", 3), "Desulfobacterota")
+  Phylum = c(rep("Bacillota", 4), rep("Bacteroidota", 4), "Actinobacteria", rep("Bacillota", 3), "Desulfobacterota")
 )
 
 rownames(taxa_ann) <- taxa_ann$Specie
@@ -231,7 +232,7 @@ taxa_ann <- taxa_ann[rownames(beta_mx), c("Metadata", "Phylum") , drop = FALSE]
 
 ```{r - hierarchical clustering - heatmap }
 
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/beta_heatmap.png", width = 2400, height =1800, res = 300)
+png(here("Plots/beta_heatmap.png"), width = 2400, height =1800, res = 300)
 
 Heatmap(
   beta_mx,
@@ -256,7 +257,7 @@ Heatmap(
     df = taxa_ann,
     col = list(
       Metadata = c("Binary" = "#4D4D4D", "Continuous" = "#C0C0C0"),
-      Phylum = c("Firmicutes"   = "#7CCD7C", "Bacteroidota" = "#FFA54F", "Actinobacteria" = "#EE3B3B", "Desulfobacterota" = "#EE799F")),
+      Phylum = c("Bacillota"   = "#7CCD7C", "Bacteroidota" = "#FFA54F", "Actinobacteria" = "#EE3B3B", "Desulfobacterota" = "#EE799F")),
     width = unit(4, "mm"),
     annotation_name_gp = grid::gpar(col = NA)
     ),
