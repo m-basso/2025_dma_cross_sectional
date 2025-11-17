@@ -9,29 +9,30 @@ library(ggplot2)
 library(ggbeeswarm)
 library(e1071)
 library(car) # for vif
+library(here)
 
 ```
 
 ```{r - upload dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/EDA_utils.R")
+source(here("Scripts/Distr_visualization_utils.R"))
+source(here"Scripts/EDA_utils.R"))
 
 ```
 
 
 ```{r - upload datasets }
 # IV
-in24_nutr_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_nutr_t1.adj.rds")
-in24_ng_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng_t1.adj.rds")
-in24_fi_t1.adj_filtered <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj_filtered.rds")
-in24_fg_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj.rds")
-in24_dp_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_dp_t1.rds")
-FFQ_p_ni_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.adj.lm.rds")
-in24_fi_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj.cat.medoids.rds")
-in24_fg_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj.cat.medoids.rds")
+in24_nutr_t1.adj <- readRDS(here("Data/Processed/in24_nutr_t1.adj.rds"))
+in24_ng_t1.adj <- readRDS(here("Data/Processed/in24_ng_t1.adj.rds"))
+in24_fi_t1.adj_filtered <- readRDS(here("Data/Processed/in24_fi_t1.adj_filtered.rds"))
+in24_fg_t1.adj <- readRDS(here("Data/Processed/in24_fg_t1.adj.rds"))
+in24_dp_t1 <- readRDS(here("Data/Processed/in24_dp_t1.rds"))
+FFQ_p_ni_t1.adj <- readRDS(here("Data/Processed/FFQ_p_ni_t1.adj.lm.rds"))
+in24_fi_t1.adj.cat.medoids <- readRDS(here("Data/Processed/in24_fi_t1.adj.cat.medoids.rds"))
+in24_fg_t1.adj.cat.medoids <- readRDS(here("Data/Processed/in24_fg_t1.adj.cat.medoids.rds"))
 # DV
-df_p_t1_outcomes <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1_outcomes.rds")
-df_p_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1.rds")
+df_p_t1_outcomes <- readRDS(here("Data/Processed/df_p_t1_outcomes.rds"))
+df_p_t1 <- readRDS(here("Data/Processed/df_p_t1.rds"))
 
 ```
 
@@ -84,7 +85,7 @@ apply(in24_ng_t1.adj_scaled[, cols_ng], 2, skewness)
 # check var to ensure proper scaling
 apply(in24_ng_t1.adj_scaled[, cols_ng], 2, var)
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_ng_t1.adj_scaled.png", bg = "white", plot = P, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/in24_ng_t1.adj_scaled.png"), bg = "white", plot = P, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -114,9 +115,9 @@ apply(in24_fg_t1.adj_scaled[, cols_fg], 2, var)
 # PROCESSING LEVEL only
 cols_pr <- colnames(in24_fg_t1.adj)[3:4]
 pr_adj_dist <- distr_f(in24_fg_t1.adj, cols_pr)
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_proc_t1.adj.png", bg = "white", plot = pr_adj_dist, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/in24_proc_t1.adj.png"), bg = "white", plot = pr_adj_dist, width = 10, height = 6, dpi = 300)
 pr_adj_scaled_distr <- distr_f(in24_fg_t1.adj_scaled, cols_pr)
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_proc_t1.adj.scaled.png", bg = "white", plot = pr_adj_scaled_distr, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/in24_proc_t1.adj.scaled.png"), bg = "white", plot = pr_adj_scaled_distr, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -403,26 +404,26 @@ metadata_t1[, c(3:4, 6)] <- lapply(metadata_t1[, c(3:4, 6)], as.factor)
 ```{r - save df }
 
 # ng, scaled
-saveRDS(in24_ng_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng_t1.adj_scaled.rds")
+saveRDS(in24_ng_t1.adj_scaled, here("Data/Processed/in24_ng_t1.adj_scaled.rds"))
 # fg, medoids, scaled
-saveRDS(in24_fg_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fg_t1.adj_scaled.rds")
+saveRDS(in24_fg_t1.adj_scaled, here("Data/Processed/in24_fg_t1.adj_scaled.rds"))
 # fi, medoids, scaled
-saveRDS(in24_fi_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_fi_t1.adj_scaled.rds")
+saveRDS(in24_fi_t1.adj_scaled, here("Data/Processed/in24_fi_t1.adj_scaled.rds"))
 
 # main outcomes
-saveRDS(df_p_t1_main_outcomes, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1_main_outcomes_scaled.rds")
+saveRDS(df_p_t1_main_outcomes, here("Data/Processed/df_p_t1_main_outcomes_scaled.rds"))
 
 # df completed with outcomes
 # ffq, scaled
-saveRDS(FFQ_p_ni_t1.adj_scaled, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.adj_scaled.rds")
+saveRDS(FFQ_p_ni_t1.adj_scaled, here("Data/Processed/FFQ_p_ni_t1.adj_scaled.rds"))
 # ng + f, adj
-saveRDS(in24_ng.f_t1_cl, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_t1_cl.rds")
-saveRDS(in24_ng.f_scaled_cl, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_scaled_cl.rds")
+saveRDS(in24_ng.f_t1_cl, here("Data/Processed/in24_ng.f_t1_cl.rds"))
+saveRDS(in24_ng.f_scaled_cl, here("Data/Processed/in24_ng.f_scaled_cl.rds"))
 # medoids 
-saveRDS(in24_f_medoids, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_f_medoids.rds")
+saveRDS(in24_f_medoids, here("Data/Processed/in24_f_medoids.rds"))
 
 # save metadata
-saveRDS(metadata_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+saveRDS(metadata_t1, here("Data/Processed/metadata_t1.rds"))
 
 ```
 

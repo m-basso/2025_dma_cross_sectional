@@ -12,12 +12,13 @@ library(sechm) # wrapper for ComplexHeatmap package
 library(patchwork) # for wrap 
 library(cowplot) # for plot merge / alignemnt
 library(dplyr)
+library(here)
 
 ```
 
 ```{r - upload data }
-tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
-tse_l1_ab20 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_l1_ab20.rds")
+tse_taxa <- readRDS(here("Data/Processed/tse_taxa.rds"))
+tse_l1_ab20 <- readRDS(here("Data/Processed/tse_l1_ab20.rds"))
 
 ```
 
@@ -84,7 +85,7 @@ p_strip <- ggplot(meta_df, aes(x = sample, y = 1, fill = HEI_cluster_2)) +
   )
 
 plot <- (barplot / p_strip) + plot_layout(heights = c(1, 0.03))
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/tax_barplot.png", bg = "white", plot = plot, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/tax_barplot.png"), bg = "white", plot = plot, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -136,7 +137,7 @@ p_strip <- ggplot(meta_df, aes(x = sample, y = 1, fill = HEI_cluster_2)) +
   )
 
 plot2 <- (magnified_barplot / p_strip) + plot_layout(heights = c(1, 0.03))
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/magnified_barplot.png", bg = "white", plot = plot2, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/magnified_barplot.png"), bg = "white", plot = plot2, width = 10, height = 6, dpi = 300)
 
 ```
 

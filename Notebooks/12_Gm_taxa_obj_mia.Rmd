@@ -9,6 +9,7 @@ library(TreeSummarizedExperiment)
 library(zCompositions) # for multiplicative bayesian replacement
 library(dplyr)
 library(rtk)
+library(here)
 
 ```
 
@@ -16,21 +17,20 @@ library(rtk)
 ```{r - upload df }
 
 # df
-in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+in24_merged_VIF <- readRDS(here("Data/Processed/in24_merged_VIF.rds"))
 
 # l6
 # counts
-gm_taxa_spec_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
-gm_taxa_spec_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds") # for alpha beta div
+gm_taxa_spec_t1.f <- readRDS(here("Data/Processed/gm_taxa_spec_t1.f.rds"))
+gm_taxa_spec_t1 <- readRDS(here("Data/Processed/gm_taxa_spec_t1.rds")) # for alpha beta div
 # phylo tree
-phylo_tree_l6 <-  readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l6.rds")
+phylo_tree_l6 <-  readRDS(here("Data/Processed/phylo_tree_l6.rds"))
 
 # l1
 # counts
-gm_taxa_pyl_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+gm_taxa_pyl_t1.f <- readRDS(here("Data/Processed/gm_taxa_pyl_t1.f.rds"))
 # phylo tree
-phylo_tree_l1 <-  readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l1.rds")
-
+phylo_tree_l1 <-  readRDS(here("Data/Processed/phylo_tree_l1.rds"))
 
 ```
 
@@ -388,11 +388,11 @@ alpha_df <- do.call(rbind, lapply(t$divvs, function(x) {
 
 ```{r - save tse_taxa }
 
-saveRDS(tse_taxa, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
-saveRDS(tse_taxa_sub30, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_sub30.rds")
-saveRDS(tse_taxa_ab20, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa_ab20.rds")
-saveRDS(tse_l1_ab20, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_l1_ab20.rds")
-saveRDS(alpha_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df.rds")
+saveRDS(tse_taxa, here("Data/Processed/tse_taxa.rds"))
+saveRDS(tse_taxa_sub30, here("Data/Processed/tse_taxa_sub30.rds"))
+saveRDS(tse_taxa_ab20, here("Data/Processed/tse_taxa_ab20.rds"))
+saveRDS(tse_l1_ab20, here("Data/Processed/tse_l1_ab20.rds"))
+saveRDS(alpha_df, here("Data/Processed/alpha_df.rds"))
 
 ```
 

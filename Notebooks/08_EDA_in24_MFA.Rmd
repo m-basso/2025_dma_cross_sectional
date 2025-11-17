@@ -14,21 +14,22 @@ library(corrplot)
 library(openxlsx)
 library(ggsignif)
 library(kableExtra)
+library(here)
 
 ```
 
 ```{r - load dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/basic_stats_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/EDA_utils.R")
+source(here("Scripts/basic_stats_utils.R"))
+source(here("Scripts/Distr_visualization_utils.R"))
+source(here("Scripts/EDA_utils.R"))
 ```
 
 ```{r - upload dataset }
 
-in24_ng.f_t1_cl <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_t1_cl.rds")
-in24_ng.f_scaled_cl <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ng.f_scaled_cl.rds")
-in24_f_medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_f_medoids.rds")
-df_p_t1_outcomes <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1_outcomes.rds")
+in24_ng.f_t1_cl <- readRDS(here("Data/Processed/in24_ng.f_t1_cl.rds"))
+in24_ng.f_scaled_cl <- readRDS(here("Data/Processed/in24_ng.f_scaled_cl.rds"))
+in24_f_medoids <- readRDS(here("Data/Processed/in24_f_medoids.rds"))
+df_p_t1_outcomes <- readRDS(here("Data/Processed/df_p_t1_outcomes.rds"))
 
 ```
 
@@ -121,7 +122,7 @@ in24_MFA_results <- MFA(
 # Eigenvalues and variance explained # kaiser criterion
 in24_MFA_results$eig
 
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/scree_plot_MFA.png",  width = 1800, height = 1200, res = 300)
+png(here("Plots/scree_plot_MFA.png"),  width = 1800, height = 1200, res = 300)
 fviz_eig(in24_MFA_results)
 
 # Block contributions
@@ -132,14 +133,14 @@ in24_MFA_results$group$contrib[, 1:4]
 var_contr <- in24_MFA_results$quanti.var$contrib[, 1:4] # [, N Dim] with other dimensions if needed
 
 # plot var$contrib
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/var_contr_MFA.png",  width = 2000, height = 2300, res = 300)
+png(here("Plots/var_contr_MFA.png"),  width = 2000, height = 2300, res = 300)
 corrplot(in24_MFA_results$quanti.var$contrib[, 1:4], is.corr=FALSE, cl.offset = 0.25, cl.ratio = 0.50, cl.align.text = "l")
 
 # Cos2 values for variableS
 var_cos2 <- in24_MFA_results$quanti.var$cos2[, 1:4]
 
 # plot var$cos2
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/var_cos2_MFA.png",  width = 2000, height = 2300, res = 300)
+png(here("Plots/var_cos2_MFA.png"),  width = 2000, height = 2300, res = 300)
 corrplot(in24_MFA_results$quanti.var$cos2[, 1:4], is.corr=FALSE, cl.offset = 0.25, cl.ratio = 0.50, cl.align.text = "l")
 
 # cos2 values for ind
@@ -185,7 +186,7 @@ ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/
 plot.MFA(in24_MFA_results, choix = "ind", lab.var = F, lab.ind = T)
 
 # corr circle
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/corr_circle_MFA.png",  width = 2000, height = 2500, res = 300)
+png(here("Plots/corr_circle_MFA.png"),  width = 2000, height = 2500, res = 300)
 plot.MFA(in24_MFA_results, choix = "var", cex = 0.7, select = "contrib 20")
 plot.MFA(in24_MFA_results, choix = "var", axes = c(1, 3), cex = 0.7, select = "contrib 20")  # Dim 1 vs. Dim 3
 plot.MFA(in24_MFA_results, choix = "var", axes = c(2, 3), cex = 0.7, select = "contrib 20")   # Dim 2 vs. Dim 3
@@ -200,11 +201,11 @@ plot.MFA(in24_MFA_results, choix = "group")
 
 # VAR CONTR
 # excel
-write.xlsx(var_contr, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/var_contr_MFA.xlsx", rowNames = T)
+write.xlsx(var_contr, here("Excel files/var_contr_MFA.xlsx"), rowNames = T)
 
 # VAR COS2
 # excel
-write.xlsx(var_cos2, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/var_cos2_MFA.xlsx", rowNames = T)
+write.xlsx(var_cos2, here("Excel files/var_cos2_MFA.xlsx"), rowNames = T)
 
 ```
 
@@ -216,19 +217,19 @@ write.xlsx(var_cos2, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/P
 in24_MFA_loadings <- in24_MFA_results$quanti.var$coord[, 1:4] %>% as.data.frame()
 
 # visualize 
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.1_MFA.png",  width = 2000, height = 2500, res = 300)
+png(here("Plots/Dim.1_MFA.png"),  width = 2000, height = 2500, res = 300)
 visualize_loadings_con(in24_MFA_loadings, "Dim.1", title = "Loadings for Dim 1")
 dev.off()
 
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.2_MFA.png",  width = 2000, height = 2500, res = 300)
+png(here("Plots/Dim.2_MFA.png"),  width = 2000, height = 2500, res = 300)
 visualize_loadings_con(in24_MFA_loadings, "Dim.2", title = "Loadings for Dim 2")
 dev.off()
 
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.3_MFA.png",  width = 2000, height = 2500, res = 300)
+png(here("Plots/Dim.3_MFA.png"),  width = 2000, height = 2500, res = 300)
 visualize_loadings_con(in24_MFA_loadings, "Dim.3", title = "Loadings for Dim 3")
 dev.off()
 
-png("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/Dim.4_MFA.png",  width = 2000, height = 2500, res = 300)
+png(here("Plots/Dim.4_MFA.png"),  width = 2000, height = 2500, res = 300)
 visualize_loadings_con(in24_MFA_loadings, "Dim.4", title = "Loadings for Dim 4")
 dev.off()
 
@@ -273,7 +274,7 @@ in24_dp_ds_k <- in24_dp_ds_k %>%
 rownames(in24_dp_ds_k) <- NULL
 
 # save
-write.xlsx(in24_dp_ds_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/test_in24_dp_HEI.xlsx", rowNames = TRUE)
+write.xlsx(in24_dp_ds_k, here("Excel files/test_in24_dp_HEI.xlsx"), rowNames = TRUE)
 
 
 ```
@@ -300,7 +301,7 @@ ggplot(in24_dp_t1, aes(x = HEI_cluster_2, y = Dim.1, fill = HEI_cluster_2)) +
 
 ```{r - save datasets}
 
-saveRDS(in24_dp_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_dp_t1.rds" )
+saveRDS(in24_dp_t1, here("Data/Processed/in24_dp_t1.rds" ))
 
 ```
 
@@ -318,7 +319,7 @@ P3 <- distr_f(in24_dp_t1, cols_dp)
 # check skewness
 apply(in24_dp_t1[, cols_dp], 2, skewness) # all good, all scaled
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/in24_dp_t1.distr.png", bg = "white", plot = P3, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/in24_dp_t1.distr.png"), bg = "white", plot = P3, width = 10, height = 6, dpi = 300)
 
 
 ```
@@ -330,6 +331,6 @@ ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/
 in24_merged_VIF <- left_join(in24_ng.f_scaled_cl, in24_dp_t1[, 1:4], by = c("ID", "HEI_cluster_2"))
 
 # save 
-saveRDS(in24_merged_VIF, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+saveRDS(in24_merged_VIF, here("Data/Processed/in24_merged_VIF.rds"))
 
 ```

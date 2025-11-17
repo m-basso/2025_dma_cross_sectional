@@ -9,19 +9,20 @@ library(dplyr)
 library(mia)
 library(openxlsx)
 library(kableExtra)
+library(here)
 
 
 ```
 
 ```{r - upload data }
-tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds") 
-tse_gbm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds") 
-tse_ko <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_ko.rds") 
+tse_taxa <- readRDS(here("Data/Processed/tse_taxa.rds"))
+tse_gbm <- readRDS(here("Data/Processed/tse_gbm.rds"))
+tse_ko <- readRDS(here("Data/Processed/tse_ko.rds"))
 
 ```
 
 ```{r - upload dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Basic_stats_utils.R")
+source(here("Scripts/Basic_stats_utils.R"))
 
 ```
 
@@ -61,7 +62,7 @@ prev_l6_k_t[, 2:3] <- as.data.frame(lapply(prev_l6_k_t[2:3], round, 2))
 ```{r save, l6 }
 
 # excel 
-write.xlsx(prev_l6_k_t, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/prev_l6_k_t.xlsx")
+write.xlsx(prev_l6_k_t, here("Excel files/prev_l6_k_t.xlsx"))
 
 ```
 
@@ -101,7 +102,7 @@ prev_gbm_k_t[, 2:3] <- as.data.frame(lapply(prev_gbm_k_t[2:3], round, 2))
 ```{r save, gbm }
 
 # excel 
-write.xlsx(prev_gbm_k_t, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/prev_gbm_k_t.xlsx")
+write.xlsx(prev_gbm_k_t, here("Excel files/prev_gbm_k_t.xlsx"))
 
 
 ```

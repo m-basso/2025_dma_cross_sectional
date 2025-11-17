@@ -96,7 +96,7 @@ rownames(gam_gbm_df) <- gsub("[._]", " ", rownames(gam_gbm_df))
 gam_gbm_df <- gam_gbm_df[, -1]
 
 # save excel
-write.xlsx(gam_gbm_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/gam_gbm_cont.xlsx", rowNames = T)
+write.xlsx(gam_gbm_df, here("Excel files/gam_gbm_cont.xlsx"), rowNames = T)
 
 ```
 
@@ -141,7 +141,7 @@ rownames(gam_gbm.hei_df) <- gsub("[._]", " ", rownames(gam_gbm.hei_df))
 gam_gbm.hei_df <- gam_gbm.hei_df[, -1]
 
 # save excel
-write.xlsx(gam_gbm.hei_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/gam_gbn.hei_cont.xlsx", rowNames = T)
+write.xlsx(gam_gbm.hei_df, here("Excel files/gam_gbn.hei_cont.xlsx", rowNames = T))
 
 ```
 

@@ -7,19 +7,20 @@ output: html_notebook
 library(mia)
 library(zCompositions)
 library(rtk)
+library(here)
 
 ```
 
 ```{r}
 # df
-in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
+in24_merged_VIF <- readRDS(here("Data/Processed/in24_merged_VIF.rds"))
 # KO
-gm_ko_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.f.rds")
-gm_ko_t1.raw <-  readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.raw.rds")
+gm_ko_t1.f <- readRDS(here("Data/Processed/gm_ko_t1.f.rds"))
+gm_ko_t1.raw <-  readRDS(here("Data/Processed/gm_ko_t1.raw.rds"))
 # GBM
-gm_gbm_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_gbm_t1.f.rds")
+gm_gbm_t1.f <- readRDS(here("Data/Processed/gm_gbm_t1.f.rds"))
 # metadata
-metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+metadata_t1 <- readRDS(here("Data/Processed/metadata_t1.rds"))
 
 ```
 
@@ -44,7 +45,7 @@ all(colnames(gm_gbm_t1.f) == rownames(in24_merged_VIF))
 gm_gbm_t1.f <- gm_gbm_t1.f[, match(rownames(in24_merged_VIF), colnames(gm_gbm_t1.f))]
 all(colnames(gm_gbm_t1.f) == rownames(in24_merged_VIF))
 # save in right order
-saveRDS(gm_gbm_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_gbm_t1.f.rds")
+saveRDS(gm_gbm_t1.f, here("Data/Processed/gm_gbm_t1.f.rds"))
 
 ```
 
@@ -99,7 +100,7 @@ assay(tse_ko, "clr") <- as.matrix(assay(tse_ko, "clr"))
 
 ```{r - save }
 
-saveRDS(tse_ko, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_ko.rds")
+saveRDS(tse_ko, here("Data/Processed/tse_ko.rds"))
 
 ```
 
@@ -217,8 +218,8 @@ names(rowData(tse_gbm)$N_presence>= 20)
 
 ```{r - save GBM }
 
-saveRDS(tse_gbm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm.rds")
-saveRDS(alpha_df_ko, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/alpha_df_ko.rds")
+saveRDS(tse_gbm, here("Data/Processed/tse_gbm.rds"))
+saveRDS(alpha_df_ko, here("Data/Processed/alpha_df_ko.rds"))
 
 ```
 

@@ -172,7 +172,7 @@ rownames(lmrob_l6_df)<- gsub("[._]", " ", rownames(lmrob_l6_df))
 lmrob_l6_df <- lmrob_l6_df[, -1]
 
 # save excel
-write.xlsx(lmrob_l6_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6_cont.xlsx", rowNames = T)
+write.xlsx(lmrob_l6_df, here("Excel files/lmrob_l6_cont.xlsx"), rowNames = T)
 
 ```
 
@@ -281,7 +281,7 @@ rownames(lmrob_l6.hei_df)<- gsub("[._]", " ", rownames(lmrob_l6.hei_df))
 lmrob_l6.hei_df <- lmrob_l6.hei_df[, -1]
 
 # save excel
-write.xlsx(lmrob_l6.hei_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6.hei_cont.xlsx", rowNames = T)
+write.xlsx(lmrob_l6.hei_df, here("Excel files/lmrob_l6.hei_cont.xlsx"), rowNames = T)
 
 ```
 
@@ -381,7 +381,7 @@ p <- df_long %>% filter(`count` > 0) %>%
 
   
 # save
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/distr_anx_l6_con.png", bg = "white", plot = p, width = 12, height = 9, dpi = 300) 
+ggsave(here("Plots/distr_anx_l6_con.png"), bg = "white", plot = p, width = 12, height = 9, dpi = 300) 
   
     
     
@@ -436,7 +436,7 @@ p2.2 <- p2 + geom_text(
       legend.text = element_text(size = 11)
   )
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/scatterplot_l6_con.png", bg = "white", plot = p2.2, width = 12, height = 9, dpi = 300) 
+ggsave(here("Plots/scatterplot_l6_con.png"), bg = "white", plot = p2.2, width = 12, height = 9, dpi = 300) 
 
 
 ```
@@ -501,7 +501,7 @@ hv_plot_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
 
 lmrob_l6_hv <- wrap_plots(hv_plot_list, axis_titles = "collect")
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_hv.png", bg = "white", plot = lmrob_l6_hv, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/lmrob_l6_hv.png"), bg = "white", plot = lmrob_l6_hv, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -558,7 +558,7 @@ hw_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
 lmrob_l6_hw <- wrap_plots(hw_list, axis_titles = "collect")
 lmrob_l6_hw
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_hw.png", bg = "white", plot = lmrob_l6_hw, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/lmrob_l6_hw.png"), bg = "white", plot = lmrob_l6_hw, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -613,7 +613,7 @@ resw_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
 lmrob_l6_resw <- wrap_plots(resw_list, axis_titles = "collect")
 lmrob_l6_resw
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_resw.png", bg = "white", plot = lmrob_l6_resw, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/lmrob_l6_resw.png"), bg = "white", plot = lmrob_l6_resw, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -674,7 +674,7 @@ hat_res_list <- lapply(seq_along(lmrob_l6_models_sub), function(i) {
 lmrob_l6_har_res <- wrap_plots(hat_res_list, axis_titles = "collect")
 lmrob_l6_har_res
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_l6_har_res.png", bg = "white", plot = lmrob_l6_har_res, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/lmrob_l6_har_res.png"), bg = "white", plot = lmrob_l6_har_res, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -752,7 +752,7 @@ rownames(lmrob_gbm_df)<- gsub("[._]", " ", rownames(lmrob_gbm_df))
 lmrob_gbm_df <- lmrob_gbm_df[, -1]
 
 # save excel
-write.xlsx(lmrob_gbm_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_gbm_cont.xlsx", rowNames = T)
+write.xlsx(lmrob_gbm_df, here("Excel files/lmrob_gbm_cont.xlsx"), rowNames = T)
 
 ```
 
@@ -803,8 +803,8 @@ lmrob_gbm_df <- lmrob_gbm_df[, -1]
 ```{r}
 
 # save rds
-saveRDS(df_gbm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_gbm.rds")
-saveRDS(tse_count, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_gbm_count.rds")
+saveRDS(df_gbm, here("Data/Processed/df_gbm.rds"))
+saveRDS(tse_count, here("Processed/tse_gbm_count.rds"))
 
 ```
 
@@ -851,7 +851,7 @@ rownames(lmrob_gbm.hei_df)<- gsub("[._]", " ", rownames(lmrob_gbm.hei_df))
 lmrob_gbm.hei_df <- lmrob_gbm.hei_df[, -1]
 
 # save excel
-write.xlsx(lmrob_gbm.hei_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_gbm.hei_cont.xlsx", rowNames = T)
+write.xlsx(lmrob_gbm.hei_df, here("Excel files/lmrob_gbm.hei_cont.xlsx", rowNames = T))
 
 ```
 
@@ -955,7 +955,7 @@ p <- df_long %>% filter(`count` > 0) %>%
 
   
 # save
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/distr_anx_gbm_con.png", bg = "white", plot = p, width = 8, height = 6, dpi = 300) 
+ggsave(here("Plots/distr_anx_gbm_con.png"), bg = "white", plot = p, width = 8, height = 6, dpi = 300) 
   
 ```
 
@@ -1007,7 +1007,7 @@ p2.2 <- p2 + geom_text(
     strip.text = element_text(size = 12, face = "bold"),
     axis.title = element_text(face = "bold"))
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/scatterplot_gbm_con.png", bg = "white", plot = p2.2, width = 8, height = 4, dpi = 300)
+ggsave(here("Plots/scatterplot_gbm_con.png"), bg = "white", plot = p2.2, width = 8, height = 4, dpi = 300)
 
 
 
@@ -1045,7 +1045,7 @@ summary(lmrob_FB)
 
 ```{r}
 
-saveRDS(tse_taxa, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds")
+saveRDS(tse_taxa, here("Data/Processed/tse_taxa.rds"))
 
 ```
 

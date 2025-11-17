@@ -9,12 +9,13 @@ library(dplyr)
 library(tidyverse)
 library(mia)
 library(omixerRpm)
+library(here)
 
 ```
 
 
 ```{r}
-gm_ko_t1.raw <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.raw.rds") 
+gm_ko_t1.raw <- readRDS(here("Data/Processed/gm_ko_t1.raw.rds") )
 
 ```
 
@@ -146,7 +147,7 @@ gm_gbm_t1.f <- rpm_abundance %>%
 
 ```{r}
 
-saveRDS(gm_gbm_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_gbm_t1.f.rds")
+saveRDS(gm_gbm_t1.f, here("Data/Processed/gm_gbm_t1.f.rds"))
 
 ```
 

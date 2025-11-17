@@ -12,29 +12,30 @@ library(corrplot)
 library(rstatix) # for par_wise_fisher
 library(DescTools) # for Cochran-Armitage Trend test
 library(ggplot2)
+library(here)
 
 ```
 
 
 ```{r - source }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/basic_stats_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/EDA_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/Distr_visualization_utils.R")
+source(here("Scripts/basic_stats_utils.R"))
+source(here("Scripts/EDA_utils.R"))
+source(here("Scripts/Distr_visualization_utils.R"))
 ```
 
 
 ```{r - data }
-in24_ni_t1.adj.lm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_ni_t1.adj.lm.rds")
+in24_ni_t1.adj.lm <- readRDS(here("Data/processed/in24_ni_t1.adj.lm.rds"))
 
-in24_nutr_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_nutr_t1.adj.rds")
-in24_ng_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_ng_t1.adj.rds")
+in24_nutr_t1.adj <- readRDS(here("Data/processed/in24_nutr_t1.adj.rds"))
+in24_ng_t1.adj <- readRDS(here("Data/processed/in24_ng_t1.adj.rds"))
 
-in24_fi_t1.adj.cat <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fi_t1.adj.cat.rds")
-in24_fi_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fi_t1.adj.cat.medoids.rds")
+in24_fi_t1.adj.cat <- readRDS(here("Data/processed/in24_fi_t1.adj.cat.rds"))
+in24_fi_t1.adj.cat.medoids <- readRDS(here("Data/processed/in24_fi_t1.adj.cat.medoids.rds"))
 
-in24_fg_t1.adj.cat <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fg_t1.adj.cat.rds")
-in24_fg_t1.adj <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fg_t1.adj.rds")
-in24_fg_t1.adj.cat.medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Dataframes/in24_fg_t1.adj.cat.medoids.rds")
+in24_fg_t1.adj.cat <- readRDS(here("Data/processed/in24_fg_t1.adj.cat.rds"))
+in24_fg_t1.adj <- readRDS(here("Data/processed/in24_fg_t1.adj.rds"))
+in24_fg_t1.adj.cat.medoids <- readRDS(here("Data/processed/in24_fg_t1.adj.cat.medoids.rds"))
 
 ```
 
@@ -49,7 +50,7 @@ cols_to_vis <- names(in24_nutr_t1.adj)[5:ncol(in24_nutr_t1.adj)]
 in24_nutr_dist <- distr_f(in24_nutr_t1.adj, cols_to_vis)
 in24_nutr_dist
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_adj_nutr_dist.png", bg = "white", plot = in24_nutr_dist, width = 20, height = 13, dpi = 300)
+ggsave(here("Plots/in24_adj_nutr_dist.png"), bg = "white", plot = in24_nutr_dist, width = 20, height = 13, dpi = 300)
 
 ```
 
@@ -105,7 +106,7 @@ ds_in24_nutr_k <- ds_in24_nutr_k %>%
 rownames(ds_in24_nutr_k) <- NULL
 
 # Save
-write.xlsx(ds_in24_nutr_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_NUTR_k.xlsx", rowNames = TRUE)
+write.xlsx(ds_in24_nutr_k, here("Excel files/test_IN24_NUTR_k.xlsx"), rowNames = TRUE)
 
 ```
 
@@ -120,7 +121,7 @@ in24_ng_dist <- distr_f(in24_ng_t1.adj, cols_to_vis.ng)
 in24_ng_dist
 
 # save
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_adj_ng_dist.png", bg = "white", plot = in24_ng_dist, width = 15, height = 9, dpi = 300)
+ggsave(here("Plots/in24_adj_ng_dist.png"), bg = "white", plot = in24_ng_dist, width = 15, height = 9, dpi = 300)
 
 ```
 
@@ -177,7 +178,7 @@ ds_in24_ng_k <- ds_in24_ng_k %>%
 rownames(ds_in24_ng_k) <- NULL
 
 # Save
-write.xlsx(ds_in24_ng_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_NG_k.xlsx", rowNames = TRUE)
+write.xlsx(ds_in24_ng_k, here("Excel files/test_IN24_NG_k.xlsx"), rowNames = TRUE)
 
 ```
 
@@ -257,7 +258,7 @@ fi_bar <- fi_bar + scale_fill_manual(values = color_palette)
 fi_bar
 
  # save
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_fi_bar.png", bg = "white", plot = fi_bar, width = 15, height = 9, dpi = 300)
+ggsave(here("Plots/in24_fi_bar.png"), bg = "white", plot = fi_bar, width = 15, height = 9, dpi = 300)
 
 
 ```
@@ -268,8 +269,8 @@ fi_df <- fi_df %>%
   mutate(`Food item` = paste0(`Food item`, " (%)"))
 
 # Save
-write.xlsx(preferred_oil_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_preferred_oil_k.xlsx", rowNames = F)
-write.xlsx(fi_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_FI_k.xlsx", rowNames = F)
+write.xlsx(preferred_oil_df, here("Excel files/test_preferred_oil_k.xlsx"), rowNames = F)
+write.xlsx(fi_df, here("/Excel files/test_IN24_FI_k.xlsx"), rowNames = F)
 
 
 ```
@@ -339,7 +340,7 @@ fg_bar <- fg_bar + scale_fill_manual(values = color_palette)
 fg_bar
 
 # save
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/in24_fg_bar.png", bg = "white", plot = fg_bar, width = 10, height = 6, dpi = 300)
+ggsave(here("Plots/in24_fg_bar.png"), bg = "white", plot = fg_bar, width = 10, height = 6, dpi = 300)
 
 ```
 
@@ -350,7 +351,7 @@ fg_df <- fg_df %>%
   mutate(`Food group` = paste0(`Food group`, " (%)"))
 
 # save
-write.xlsx(fg_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/fg_CAT_test_HEI.xlsx", rowNames = F)
+write.xlsx(fg_df, here("Excel files/fg_CAT_test_HEI.xlsx"), rowNames = F)
 
 
 ```
@@ -390,7 +391,7 @@ ds_in24_fg_proc_k <- ds_in24_fg_proc_k %>%
 rownames(ds_in24_fg_proc_k) <- NULL
 
 
-write.xlsx(ds_in24_fg_proc_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/ds_in24_fg_proc_k.xlsx", rowNames = T)
+write.xlsx(ds_in24_fg_proc_k, here("Excel files/ds_in24_fg_proc_k.xlsx"), rowNames = T)
 
 ```
 

@@ -6,38 +6,38 @@ output: html_notebook
 
 
 ```{r - load libraries }
-library(dplyr)    # Core data manipulation (contains select() and %>%)
-library(tidyr)    # Data manipulation functions (complementary to dplyr)
-library(forcats)  # Factor manipulation functions (no conflicts)
-
+library(dplyr)    
+library(tidyr)    
+library(forcats) 
+library(here)
 
 ```
 
 ```{r - source }
 # Source general and dataset-specific cleaning scripts
 
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Cleaning_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Df_specific_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/in24_fg_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/diet_specific_utils.R")
+source(here("Scripts/Cleaning_utils.R"))
+source(here("Scripts/Df_specific_utils.R"))
+source(here("Scripts/in24_fg_utils.R"))
+source(here("Scripts/diet_specific_utils.R"))
 
 ```
 
 ```{r - data }
 #load data
-df <- read.delim("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Raw/Assessment_masterfile.txt")
-FFQ_original <- read.delim("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Raw/FFQ_results.19062024.txt")
-in24_t1 <- read.delim("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Raw/intake24_t1.23052024.txt")
+df <- read.delim(here("Data/Raw/Assessment_masterfile.txt"))
+FFQ_original <- read.delim(here("Data/Raw/FFQ_results.19062024.txt"))
+in24_t1 <- read.delim(here("Data/Raw/intake24_t1.23052024.txt"))
 ```
 
 
 # Assessment masterfile
 ```{r - preprocess df }
-#Clean df_t1
-# Apply the dataset-specific preprocessing function to df_t1
+# Clean df_t1
+# dataset-specific preprocessing function to df_t1
 df_list <- preprocess_data(df, 1)
 
-# Extract the full df_t1 and the person-specific df_t1_p
+# Extract df
 df_t1 <- df_list$data_all 
 #we are only working on df_t1_p but we need this for preprocessing of FFQ and be sure that included pp match regardless in person or total in case we need tot 
 df_p_t1 <- df_list$data_p
@@ -53,7 +53,6 @@ head(df_p_t1)
 #clean FFQ
 # Apply the dataset-specific preprocessing function to the FFQ dataset
 FFQ_t1_list <- preprocess_FFQ(FFQ_original, df_t1, df_p_t1, "T2")
-
 
 FFQ_p_ni_t1 <- FFQ_t1_list$FFQ_p
 

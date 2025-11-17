@@ -101,7 +101,7 @@ lmrob_l6.hei_df <- lmrob_table(lmrob_l6.hei, length(lmrob_l6.hei))
 rownames(lmrob_l6.hei_df) <-  gsub("[._]", " ", rownames(lmrob_l6.hei_df))
 
 # excel
-write.xlsx(lmrob_l6.hei_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_l6.hei.xlsx", rowNames = T)
+write.xlsx(lmrob_l6.hei_df, here("Excel files/lmrob_l6.hei.xlsx"), rowNames = T)
 
 ```
 
@@ -158,7 +158,7 @@ p1 <- ggplot(lmrob_l6_q02, aes(y = reorder(Feature, std_beta), x = std_beta)) +
   
 
 # save
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/lmrob_binary.png", bg = "white", plot = p1, width = 10, height = 7, dpi = 300)
+ggsave(here("Plots/lmrob_binary.png"), bg = "white", plot = p1, width = 10, height = 7, dpi = 300)
 
 
 ```
@@ -215,14 +215,14 @@ p3 <- ggplot(df_long, aes(x = Presence, y = STAI.s_sc_res)) +
   ) 
   
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/plot_binary.STAIscores.png", bg = "white", plot = p3
+ggsave(here("Plots/plot_binary.STAIscores.png"), bg = "white", plot = p3
        , width = 10, height = 7, dpi = 300)
 
 ```
 
 ```{r - re-write tse_taxa }
 
-saveRDS(df3, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_binary.rds")
+saveRDS(df3, here("Data/Processed/df_binary.rds"))
 
 ```
 

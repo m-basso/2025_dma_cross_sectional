@@ -7,20 +7,21 @@ output: html_notebook
 library(dplyr)
 library(tidyr)
 library(ape)
+library(here)
 
 ```
 
 ```{r - load dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Gm_utils.R")
+source(here("Scripts/Gm_utils.R"))
 
 ```
 
 ```{r - upload df }
 # gm, l6
-gm_taxa_spec_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
-gm_taxa_spec_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds")
+gm_taxa_spec_t1.f <- readRDS(here("Data/Processed/gm_taxa_spec_t1.f.rds"))
+gm_taxa_spec_t1 <- readRDS(here("Data/Processed/gm_taxa_spec_t1.rds"))
 # gm, l1
-gm_taxa_pyl_t1.f <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+gm_taxa_pyl_t1.f <- readRDS(here("Data/Processed/gm_taxa_pyl_t1.f.rds"))
 
 ```
 
@@ -50,9 +51,9 @@ gm_taxa_spec_t1 <- phylo_list_l6_nf$data
 ```{r save df - taxa specie L6 }
 
 # l6 df
-saveRDS(gm_taxa_spec_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
-saveRDS(gm_taxa_spec_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds")
-saveRDS(phylo_tree_l6, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l6.rds")
+saveRDS(gm_taxa_spec_t1.f, here("Data/Processed/gm_taxa_spec_t1.f.rds"))
+saveRDS(gm_taxa_spec_t1, here("Data/Processed/gm_taxa_spec_t1.rds"))
+saveRDS(phylo_tree_l6, here("Data/Processed/phylo_tree_l6.rds"))
 
 ```
 
@@ -70,9 +71,9 @@ phylo_tree_l1 <- phylo_list_l1$phylo_tree
 ```{r save df - taxa specie L1 }
 
 # l6 df
-saveRDS(gm_taxa_pyl_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+saveRDS(gm_taxa_pyl_t1.f, here("Data/Processed/gm_taxa_pyl_t1.f.rds"))
 # phylo table
-saveRDS(phylo_tree_l1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/phylo_tree_l1.rds")
+saveRDS(phylo_tree_l1, here("Data/Processed/phylo_tree_l1.rds"))
 
 ```
 

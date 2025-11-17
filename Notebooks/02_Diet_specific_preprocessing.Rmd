@@ -11,15 +11,16 @@ library(rlang)
 library(ggbeeswarm)
 library(cluster)
 library(tibble)
+library(here)
 
 ```
 
 ```{r - source }
 #source 
-rmarkdown::render("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Notebooks/01_Core_preprocessing.Rmd", output_format = NULL)
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Diet_specific_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/basic_stats_utils.R")
+rmarkdown::render(here("Notebooks/01_Core_preprocessing.Rmd", output_format = NULL))
+source(here("Scripts/Distr_visualization_utils.R"))
+source(here("Scripts/Diet_specific_utils.R"))
+source(here("Scripts/basic_stats_utils.R"))
 
 ```
 
@@ -278,7 +279,7 @@ in24_ni_t1.toadj <- in24_ni_t1 %>%
              "Cis.n6_to_Cis.n3", "Satd_to_Unsatd.FA", "Na_to_K")) #exclude FS.fi as will be used as raw values to calculate the major sources of FS
 
 # save unadj 
-saveRDS(in24_ni_t1.toadj, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ni_t1.toadj.rds")
+saveRDS(in24_ni_t1.toadj, here("Data/Processed/in24_ni_t1.toadj.rds"))
 
 #select col names
 in24_cols_adj <- colnames(in24_ni_t1.toadj)[4:length(in24_ni_t1.toadj)]
@@ -295,7 +296,7 @@ in24_ni_t1.adj.lm <- in24_ni_t1.adj.lm %>%
 
 
 # save adj 
-saveRDS(in24_ni_t1.adj.lm, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_ni_t1.adj.lm.rds")
+saveRDS(in24_ni_t1.adj.lm, here("Data/Processed/in24_ni_t1.adj.lm.rds"))
 
 ```
 
@@ -360,7 +361,7 @@ in24_ni_t1.toadj.vmh.g <- in24_ni_t1.toadj.vmh %>%
 colnames(in24_ni_t1.toadj.vmh.g) <- sub("_mg_g$", "_g", colnames(in24_ni_t1.toadj.vmh.g))
 
 # save unadj 
-saveRDS(in24_ni_t1.toadj.vmh.g, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/in24_ni_t1.toadj.vmh.g.rds")
+saveRDS(in24_ni_t1.toadj.vmh.g, here("Data/Processed/in24_ni_t1.toadj.vmh.g.rds"))
 
 
 ```

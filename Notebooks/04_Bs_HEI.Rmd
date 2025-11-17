@@ -10,21 +10,22 @@ library(ggbeeswarm)
 library(ggsignif)    
 library(readr)       
 library(openxlsx)
+library(here)
 ```
 
 ```{r}
 # load dependencies 
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/basic_stats_utils.R")
+source(here("Data/Workspace.R/Scripts/basic_stats_utils.R"))
 ```
 
 
 ```{r}
 
 #load saved dataset
-df_p_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/df_p_t1.rds")
-df_p_t1_outcomes <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/df_p_t1_outcomes.rds")
-FFQ_p_ni_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/FFQ_p_ni_t1.rds")
-FFQ_p_ni_t1.adj.lm <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/FFQ_p_ni_t1.adj.lm.rds")
+df_p_t1 <- readRDS(here("Data/Processed/df_p_t1.rds"))
+df_p_t1_outcomes <- readRDS(here("Data/Processed/df_p_t1_outcomes.rds"))
+FFQ_p_ni_t1 <- readRDS(here("Data/Processed/FFQ_p_ni_t1.rds"))
+FFQ_p_ni_t1.adj.lm <- readRDS(here("Data/Processed/FFQ_p_ni_t1.adj.lm.rds"))
 
 
 # Confirm data is loaded correctly
@@ -144,7 +145,7 @@ q_all <- round(p.adjust(p_all), 3)
 ```{r - save }
 
 # import and edit
-table <- read.delim("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R//Excel files/Tables.stats.HEI.txt", sep = "\t", header = T)
+table <- read.delim(here("Excel files/Tables.stats.HEI.txt", sep = "\t", header = T))
 table <- table[1:14, 2:8]
 
 ```
@@ -175,7 +176,7 @@ rownames(ds_FFQ_p_ni_t1.k) <- NULL
 ds_FFQ_p_ni_t1.k[ds_FFQ_p_ni_t1.k$`FFQ raw dietary variable` == "Energy (Kcal)", "HEI 2"] <- "1201 (529)"
 
 # excel
-write.xlsx(ds_FFQ_p_ni_t1.k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R//Excel files/ds_FFQ_unadj.xlsx")
+write.xlsx(ds_FFQ_p_ni_t1.k, here("Excel files/ds_FFQ_unadj.xlsx"))
 
 ```
 
@@ -217,7 +218,7 @@ rownames(ds_FFQ_p_ni_t1.k) <- NULL
 ds_FFQ_p_ni_t1.adj.k[ds_FFQ_p_ni_t1.adj.k$`FFQ adjusted intake` == "Energy (Kcal)", "HEI 2"] <- "1201 (529)"
 
 # Save
-write.xlsx(ds_FFQ_p_ni_t1.adj.k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R//Excel files/test_FFQ_adj.xlsx")
+write.xlsx(ds_FFQ_p_ni_t1.adj.k, here("Excel files/test_FFQ_adj.xlsx"))
 
 ```
 
@@ -225,18 +226,12 @@ write.xlsx(ds_FFQ_p_ni_t1.adj.k, "C:/Users/bm00900/OneDrive - University of Surr
 
 # import and edit
 table_2 <- read.delim(
-  "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/ds_test_FFQ_k.txt",
+  here("Excel files/ds_test_FFQ_k.txt"),
   sep = "\t",
   header = TRUE,
   check.names = FALSE)
 table_2 <- table_2[-31, ]
 
-# friendly version
-table_2_t <- kable(table_2, format = "html", align = "l", table.attr = "class='table table-bordered'") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
-
-# Save
-save_kable(table_2_t, file = "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Formatted files/ds_test_FFQ_k.html")
 
 ```
 
@@ -276,7 +271,7 @@ HEI_scores_k <- ggplot(df_p_t1, aes(x = HEI_cluster_2, y = HEI.2020_tot)) +
   theme_minimal()
 
 # save 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_scores_k.png", bg = "white", plot = HEI_scores_k, width = 6, height = 4, dpi = 300)
+ggsave(here("Plots/HEI_scores_k.png"), bg = "white", plot = HEI_scores_k, width = 6, height = 4, dpi = 300)
 
 ```
 
@@ -295,7 +290,7 @@ HEI_anx_k <- ggplot(df_p_t1, aes(x = HEI_cluster_2, y = STAI.s_sc_res)) +
   theme_minimal()
 
 # save 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Plots/HEI_STAI_k.png", bg = "white", plot = HEI_anx_k, width = 6, height = 4, dpi = 300)
+ggsave(here("Plots/HEI_STAI_k.png"), bg = "white", plot = HEI_anx_k, width = 6, height = 4, dpi = 300)
 
 ggplot(df_p_t1_outcomes, aes(x = HEI_cluster_2, y = STAI.s_score)) +
   geom_violin(aes(fill = HEI_cluster_2)) +  

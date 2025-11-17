@@ -19,24 +19,25 @@ library(purrr)
 library(rlang)      # for .data pronoun
 library(patchwork)  # wrap_plots
 library(scales)     # percent_format
+library(here)
 
 ```
 
 
 ```{r - upload dependencies }
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Gm_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/Distr_visualization_utils.R")
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Scripts/EDA_utils.R")
+source(here("Scripts/Gm_utils.R"))
+source(here("Scripts/Distr_visualization_utils.R"))
+source(here("Scripts/EDA_utils.R"))
 
 ```
 
 ```{r - upload datasets }
 # merged and scaled
-in24_f_medoids <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_f_medoids.rds")
-in24_merged_VIF <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds")
-FFQ_p_ni_t1.adj_scaled <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/FFQ_p_ni_t1.adj_scaled.rds")
-metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
-df_p_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/df_p_t1.rds")
+in24_f_medoids <- readRDS(here("Data/Processed/in24_f_medoids.rds"))
+in24_merged_VIF <- readRDS(here("Data/Processed/in24_merged_VIF.rds"))
+FFQ_p_ni_t1.adj_scaled <- readRDS(here("Data/Processed/FFQ_p_ni_t1.adj_scaled.rds"))
+metadata_t1 <- readRDS(here("Data/Processed/metadata_t1.rds"))
+df_p_t1 <- readRDS(here("Data/Processed/df_p_t1.rds"))
 
 
 ```
@@ -84,7 +85,7 @@ lmrob_metadata <- lapply(metadata_t1[, cols], function(x) {
 lmrob_md_df <- lmrob_table(lmrob_metadata, length(lmrob_metadata))
 
 # save 
-write.xlsx(lmrob_md_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_metadata.xlsx", rowNames = T)
+write.xlsx(lmrob_md_df, here("Excel files/lmrob_metadata.xlsx"), rowNames = T)
 
 ```
 
@@ -121,8 +122,8 @@ metadata_t1$STAI.s_sc_res <- res[match(metadata_t1$ID, names(res))]
 metadata_t1$STAI.s_sc_res <- as.numeric(scale(metadata_t1$STAI.s_sc_res))
 
 # save 
-saveRDS(in24_merged_VIF, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/in24_merged_VIF.rds") # now stai res is further attached
-saveRDS(metadata_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds") # now stai scaled and res are attached
+saveRDS(in24_merged_VIF, here("Data/Processed/in24_merged_VIF.rds")) # now stai res is further attached
+saveRDS(metadata_t1, here("Data/Processed/metadata_t1.rds")) # now stai scaled and res are attached
 
 ```
 
@@ -157,7 +158,7 @@ hei_stai_p <- ggplot(in24_merged_VIF, aes(x = HEI_cluster_2, y = STAI.s_sc_res))
   )
 
 # save 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/HEI_STAI_k.png", bg = "white", plot = hei_stai_p, width = 6, height = 4, dpi = 300)
+ggsave(here("Plots/HEI_STAI_k.png"), bg = "white", plot = hei_stai_p, width = 6, height = 4, dpi = 300)
 
 ```
 
@@ -184,7 +185,7 @@ lmrob_lt <- apply(ffq_merged[, cols_ffq], 2, function(x) lmrob(STAI.s_sc_res ~ x
 lmrob_lt_df <- lmrob_table(lmrob_lt, length(lmrob_lt))
 
 # save excel
-write.xlsx(lmrob_lt_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_lt.xlsx", rowNames = T)
+write.xlsx(lmrob_lt_df, here("Excel files/lmrob_lt.xlsx"), rowNames = T)
 
 ```
 
@@ -225,7 +226,7 @@ lmrob_st  <- apply(in24_merged_VIF[, cols_in24], 2, function(x) lmrob(STAI.s_sc_
 lmrob_st_df <- lmrob_table(lmrob_st, length(lmrob_st))
 
 # save excel
-write.xlsx(lmrob_st_df, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Excel files/lmrob_st.xlsx", rowNames = T)
+write.xlsx(lmrob_st_df, here("Excel files/lmrob_st.xlsx"), rowNames = T)
 
 
 ```
@@ -534,7 +535,7 @@ names(plots) <- vars
 plot <- patchwork::wrap_plots(plots, axes = "collect", guides = "collect")
 
 # save
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/exploratory_plot.png", bg = "white", plot = plot, width = 15, height = 10, dpi = 600) 
+ggsave(here("Plots/exploratory_plot.png"), bg = "white", plot = plot, width = 15, height = 10, dpi = 600) 
 
 
 ```

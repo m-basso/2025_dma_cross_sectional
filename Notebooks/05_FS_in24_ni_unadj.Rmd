@@ -11,11 +11,11 @@ library(openxlsx)
 
 ```{r - load df }
 
-in24_ni_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Data/Processed/in24_ni_t1.rds")
+in24_ni_t1 <- readRDS(here("Data/Processed/in24_ni_t1.rds"))
 ```
 
 ```{r - load dependencies}
-source("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Scripts/basic_stats_utils.R")
+source(here("Scripts/basic_stats_utils.R"))
 ```
 
 
@@ -76,6 +76,6 @@ FS_ds_k$p <- round(FS_ds_k$p, 3)
 FS_ds_k$p.adj <- round(FS_ds_k$p.adj, 3)
 
 # Save
-write.xlsx(FS_ds_k, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.R/Excel files/test_IN24_FS.xlsx", rowNames = TRUE)
+write.xlsx(FS_ds_k, here("Excel files/test_IN24_FS.xlsx"), rowNames = TRUE)
 
 ```

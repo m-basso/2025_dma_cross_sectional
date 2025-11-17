@@ -10,12 +10,13 @@ library(mia)
 library(scater)
 library(patchwork)
 library(MiRKAT)
+library(here)
 
 ```
 
 ```{r - upload data }
-tse_taxa <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/tse_taxa.rds") 
-metadata_t1 <- readRDS("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/metadata_t1.rds")
+tse_taxa <- readRDS(here("Data/Processed/tse_taxa.rds"))
+metadata_t1 <- readRDS(here("Data/Processed/metadata_t1.rds"))
 
 ```
 
@@ -72,7 +73,7 @@ MDS_p <- plotReducedDim(
     strip.text      = element_text(size = 16)
   )
 
-ggsave("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Plots/MDS_aitchison.png", bg = "white", plot = MDS_p, width = 13, height = 15, dpi = 300)
+ggsave(here("Plots/MDS_aitchison.png"), bg = "white", plot = MDS_p, width = 13, height = 15, dpi = 300)
 
 MDS_p
 

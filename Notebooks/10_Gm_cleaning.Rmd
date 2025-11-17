@@ -9,6 +9,7 @@ library(dplyr)
 library(here)
 library(writexl)
 library(openxlsx)
+library(here)
 
 ```
 
@@ -18,11 +19,11 @@ library(openxlsx)
 ```{r - upload files }
 # df
 in24_merged_VIF <- readRDS(here("Data/Processed/in24_merged_VIF.rds"))
-# taxa, species 
+# taxa, species # speficy your own path
 gm_taxa_spec_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL6.txt")
-# taxa, phylum 
+# taxa, phylum # specify your ouw path
 gm_taxa_pyl_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_taxa/Abundance/MGS.matL1.txt")
-# KOs
+# KOs # specify your own path
 gm_ko_t1 <- read_tsv("C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/DMA_T1_Funct/KGML0.txt")
 
 ```
@@ -140,8 +141,8 @@ rownames(gm_taxa_spec_t1) <- row_names
 
 ```{r save df - taxa specie L6 }
 
-saveRDS(gm_taxa_spec_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.f.rds")
-saveRDS(gm_taxa_spec_t1, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_spec_t1.rds")
+saveRDS(gm_taxa_spec_t1.f, here("Data/Processed/gm_taxa_spec_t1.f.rds"))
+saveRDS(gm_taxa_spec_t1, here("Data/Processed/gm_taxa_spec_t1.rds"))
 
 ```
 
@@ -217,7 +218,7 @@ gm_taxa_pyl_t1.f <- gm_taxa_pyl_t1 %>%
 
 ```{r save df - taxa phylum - L1 }
 
-saveRDS(gm_taxa_pyl_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_taxa_pyl_t1.f.rds")
+saveRDS(gm_taxa_pyl_t1.f, here("Data/Processed/gm_taxa_pyl_t1.f.rds"))
  
 ```
 
@@ -299,8 +300,8 @@ gm_ko_t1.f <- gm_ko_t1.raw %>%
 
 ```{r save df - KOs - raw }
 
-saveRDS(gm_ko_t1.raw, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.raw.rds")
-saveRDS(gm_ko_t1.f, "C:/Users/bm00900/OneDrive - University of Surrey/Desktop/Ph.D/DMA study/Data/Workspace.1/Data/Processed/gm_ko_t1.f.rds")
+saveRDS(gm_ko_t1.raw, here("Data/Processed/gm_ko_t1.raw.rds"))
+saveRDS(gm_ko_t1.f, here("/Data/Processed/gm_ko_t1.f.rds"))
  
 ```
 
